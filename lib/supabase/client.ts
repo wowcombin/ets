@@ -1,17 +1,13 @@
 import { createClient } from '@supabase/supabase-js'
 
-// Проверяем наличие переменных окружения
-if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-  throw new Error('Missing env.NEXT_PUBLIC_SUPABASE_URL')
-}
-if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-  throw new Error('Missing env.NEXT_PUBLIC_SUPABASE_ANON_KEY')
-}
+// Используем ваши переменные окружения
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://oxnrptswkkfynjumtvnb.supabase.co'
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94bnJwdHN3a2tmeW5qdW10dm5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUyMDY5MTMsImV4cCI6MjA3MDc4MjkxM30.0iTHTooHPDs46qXmDuWFe0Iedm3fzW-de92HjFPdjf8'
 
 // Создаем клиент для использования на клиенте
 export const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  supabaseUrl,
+  supabaseAnonKey,
   {
     auth: {
       persistSession: true,
@@ -22,13 +18,11 @@ export const supabase = createClient(
 
 // Создаем клиент для использования на сервере (с service role key)
 export const getServiceSupabase = () => {
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    throw new Error('Missing env.SUPABASE_SERVICE_ROLE_KEY')
-  }
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94bnJwdHN3a2tmeW5qdW10dm5iIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NTIwNjkxMywiZXhwIjoyMDcwNzgyOTEzfQ.bDYjlBpg4xLPy6ytaYU6XtjKvOpKl0leGkZFvy1o_iE'
   
   return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    supabaseUrl,
+    serviceKey,
     {
       auth: {
         persistSession: false,
