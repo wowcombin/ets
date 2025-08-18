@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, NextRequest } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase/client'
 import { 
   collectAllEmployeeData, 
@@ -6,10 +6,12 @@ import {
   getCurrentMonthName 
 } from '@/lib/google/drive-client'
 
-export async function GET(request: Request) {
+export const dynamic = 'force-dynamic'
+
+export async function GET(request: NextRequest) {
   try {
     // Получаем параметр месяца из URL (опционально)
-    const { searchParams } = new URL(request.url)
+    const searchParams = request.nextUrl.searchParams
     const monthName = searchParams.get('month') || getCurrentMonthName()
     const monthCode = searchParams.get('monthCode') || getCurrentMonthCode()
 
