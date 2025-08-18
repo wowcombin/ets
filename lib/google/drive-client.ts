@@ -109,6 +109,7 @@ export async function getEmployeeFolders() {
       q: `'${JUNIOR_FOLDER_ID}' in parents and mimeType='application/vnd.google-apps.folder' and name contains '@'`,
       fields: 'files(id, name)',
       orderBy: 'name',
+      pageSize: 100,
     })
 
     return response.data.files || []
@@ -123,27 +124,20 @@ export async function findWorkSpreadsheet(folderId: string, username: string) {
   try {
     const auth = await getGoogleAuth()
     const drive = google.drive({ version: 'v3', auth })
-
-    // Ищем файл с названием "WORK @username"
-    const searchName = `WORK ${username}`
     
     const response = await drive.files.list({
       q: `'${folderId}' in parents and mimeType='application/vnd.google-apps.spreadsheet' and name contains 'WORK'`,
       fields: 'files(id, name)',
+      pageSize: 10,
     })
 
     const files = response.data.files || []
     
-    // Находим файл, который содержит username в названии
-    const workFile = files.find(file => 
-      file.name?.includes(username.replace('@', '')) || 
-      file.name?.toLowerCase().includes('work')
-    )
-
-    return workFile
+    // Возвращаем первый найденный файл WORK
+    return files.length > 0 ? files[0] : null
   } catch (error) {
     console.error('Error finding work spreadsheet:', error)
-    throw error
+    return null
   }
 }
 
@@ -153,8 +147,23 @@ export async function readEmployeeTransactions(spreadsheetId: string, month: str
     const auth = await getGoogleAuth()
     const sheets = google.sheets({ version: 'v4', auth })
 
+    // Сначала проверяем какие листы есть в таблице
+    const spreadsheet = await sheets.spreadsheets.get({
+      spreadsheetId,
+      fields: 'sheets.properties.title'
+    })
+
+    const sheetNames = spreadsheet.data.sheets?.map(s => s.properties?.title) || []
+    console.log(`Available sheets in ${spreadsheetId}:`, sheetNames)
+
+    // Проверяем есть ли лист с нужным месяцем
+    if (!sheetNames.includes(month)) {
+      console.log(`Sheet "${month}" not found in spreadsheet`)
+      return []
+    }
+
     // Читаем данные с листа текущего месяца
-    const range = `${month}!A2:D` // Начинаем со второй строки (первая - заголовки)
+    const range = `${month}!A2:D100` // Читаем до 100 строк
     
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
@@ -187,9 +196,10 @@ export async function readEmployeeTransactions(spreadsheetId: string, month: str
       }
     }
 
+    console.log(`Found ${transactions.length} transactions for ${month}`)
     return transactions
-  } catch (error) {
-    console.error('Error reading employee transactions:', error)
+  } catch (error: any) {
+    console.error('Error reading employee transactions:', error.message)
     return []
   }
 }
