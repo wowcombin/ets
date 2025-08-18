@@ -159,7 +159,8 @@ export async function GET(request: Request) {
     }
 
     // 6. Обновляем статусы карт по казино
-    for (const [casino, cards] of data.cardThemes) {
+    const cardThemesArray = Array.from(data.cardThemes.entries())
+    for (const [casino, cards] of cardThemesArray) {
       for (const cardNumber of cards) {
         // Находим, кто использовал эту карту
         const { data: transaction } = await supabase
