@@ -39,17 +39,58 @@ export async function GET() {
     const JUNIOR_FOLDER_ID = '1FEtrBtiv5ZpxV4C9paFzKf8aQuNdwRdu'
     
     const response = await drive.files.list({
-      q: `'${JUNIOR_FOLDER_ID}' in parents`,
+      q: `'${JUNIOR_FOLDER_ID}' in parents and mimeType='application/vnd.google-apps.folder' and name contains '@'`,
       fields: 'files(id, name, mimeType)',
-      pageSize: 10
+      pageSize: 20
     })
+
+    // Для каждой папки сотрудника ищем файл WORK
+    const employeeFolders = response.data.files || []
+    const employeeData = []
+
+    for (const folder of employeeFolders) {
+      if (folder.id) {
+        // Ищем файл WORK в папке сотрудника
+        const workFilesResponse = await drive.files.list({
+          q: `'${folder.id}' in parents and mimeType='application/vnd.google-apps.spreadsheet' and name contains 'WORK'`,
+          fields: 'files(id, name)',
+          pageSize: 5
+        })
+        
+        employeeData.push({
+          folder: folder.name,
+          folderId: folder.id,
+          workFiles: workFilesResponse.data.files || []
+        })
+      }
+    }
+
+    // Также проверим тестовую таблицу
+    const sheets = google.sheets({ version: 'v4', auth })
+    let testSheetData = null
+    
+    try {
+      const TEST_SPREADSHEET_ID = '1i0IbJgxn7WwNH7T7VmOKz_xkH0GMfyGgpKKJqEmQqvA'
+      const testResponse = await sheets.spreadsheets.get({
+        spreadsheetId: TEST_SPREADSHEET_ID,
+        fields: 'properties.title,sheets.properties.title'
+      })
+      
+      testSheetData = {
+        title: testResponse.data.properties?.title,
+        sheets: testResponse.data.sheets?.map(s => s.properties?.title)
+      }
+    } catch (error: any) {
+      testSheetData = { error: error.message }
+    }
 
     return NextResponse.json({
       success: true,
       message: 'Google API работает!',
       email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-      filesFound: response.data.files?.length || 0,
-      files: response.data.files || []
+      employeeFoldersCount: employeeFolders.length,
+      employeeData,
+      testSheet: testSheetData
     })
 
   } catch (error: any) {
