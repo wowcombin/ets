@@ -65,18 +65,19 @@ export async function GET(request: NextRequest) {
         if (!employee || employeeError) {
           const { data: newEmployee, error: createError } = await supabase
             .from('employees')
-            .insert({
+            .insert([{
               username: employeeData.username,
               folder_id: employeeData.folderId,
-              is_manager: false,
-              profit_percentage: 10.00,
-            })
-            .select('id')
+              is_manager: ['@sobroffice', '@vladsohr', '@n1mbo', '@i88jU'].includes(employeeData.username),
+              profit_percentage: employeeData.username === '@vladsohr' ? 5.00 : 
+                                employeeData.username === '@i88jU' ? 5.00 : 10.00,
+            }])
+            .select()
             .single()
 
           if (createError) {
             console.error(`Error creating employee ${employeeData.username}:`, createError)
-            stats.errors.push(`Failed to create employee ${employeeData.username}`)
+            stats.errors.push(`Failed to create employee ${employeeData.username}: ${createError.message}`)
             continue
           }
 
@@ -104,7 +105,7 @@ export async function GET(request: NextRequest) {
 
           const { error: transactionError } = await supabase
             .from('transactions')
-            .insert({
+            .insert([{
               employee_id: employee.id,
               month: monthCode,
               casino_name: transaction.casino,
@@ -115,19 +116,21 @@ export async function GET(request: NextRequest) {
               card_number: transaction.cardNumber,
               gross_profit_usd: transaction.grossProfit,
               net_profit_usd: netProfit,
-            })
+            }])
 
           if (transactionError) {
             console.error('Error inserting transaction:', transactionError)
+            stats.errors.push(`Transaction error for ${employeeData.username}: ${transactionError.message}`)
           } else {
             stats.transactionsCreated++
           }
         }
 
         stats.employeesProcessed++
-      } catch (error) {
+        console.log(`Processed ${employeeData.username}: ${employeeData.transactions.length} transactions`)
+      } catch (error: any) {
         console.error(`Error processing employee ${employeeData.username}:`, error)
-        stats.errors.push(`Error processing ${employeeData.username}`)
+        stats.errors.push(`Error processing ${employeeData.username}: ${error.message}`)
       }
     }
 
@@ -142,15 +145,15 @@ export async function GET(request: NextRequest) {
       // Добавляем новые
       const { error: expenseError } = await supabase
         .from('expenses')
-        .insert({
+        .insert([{
           month: monthCode,
           amount_usd: data.expenses,
           description: `${monthName} total expenses`,
-        })
+        }])
 
       if (expenseError) {
         console.error('Error saving expenses:', expenseError)
-        stats.errors.push('Failed to save expenses')
+        stats.errors.push(`Failed to save expenses: ${expenseError.message}`)
       }
     }
 
@@ -167,13 +170,15 @@ export async function GET(request: NextRequest) {
         // Создаем новую карту
         const { error: cardError } = await supabase
           .from('cards')
-          .insert({
+          .insert([{
             card_number: cardNumber,
             status: 'available',
-          })
+          }])
 
         if (!cardError) {
           stats.cardsUpdated++
+        } else {
+          console.error(`Error creating card ${cardNumber}:`, cardError)
         }
       }
     }
