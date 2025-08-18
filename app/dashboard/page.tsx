@@ -115,18 +115,27 @@ export default function DashboardPage() {
   const syncData = async () => {
     setSyncing(true)
     try {
-      const response = await fetch('/api/sync')
+      const response = await fetch('/api/sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          month: new Date().toLocaleString('en-US', { month: 'long' })
+        })
+      })
       const result = await response.json()
       
       if (result.success) {
-        alert(`Синхронизация завершена! Обработано ${result.stats.employeesProcessed} сотрудников`)
+        alert(`Синхронизация завершена! Обработано ${result.stats.employeesProcessed} сотрудников, создано ${result.stats.transactionsCreated} транзакций`)
         await loadData()
       } else {
-        alert(`Ошибка синхронизации: ${result.error}`)
+        console.error('Sync error details:', result)
+        alert(`Ошибка синхронизации: ${result.error || 'Неизвестная ошибка'}`)
       }
     } catch (error) {
       console.error('Sync error:', error)
-      alert('Ошибка при синхронизации')
+      alert('Ошибка при синхронизации. Проверьте консоль для деталей.')
     } finally {
       setSyncing(false)
     }
