@@ -7,9 +7,27 @@ import {
 } from '@/lib/google/drive-client'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60 // Увеличиваем таймаут до 60 секунд
 
 export async function GET(request: NextRequest) {
   try {
+    // Проверяем наличие credentials
+    if (!process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || !process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY) {
+      console.error('Missing Google credentials')
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Google credentials not configured',
+          stats: {
+            employeesProcessed: 0,
+            transactionsCreated: 0,
+            errors: ['Missing Google Service Account credentials']
+          }
+        },
+        { status: 500 }
+      )
+    }
+
     // Получаем параметр месяца из URL (опционально)
     const searchParams = request.nextUrl.searchParams
     const monthName = searchParams.get('month') || getCurrentMonthName()
@@ -304,4 +322,9 @@ async function calculateSalaries(monthCode: string) {
         is_paid: false,
       })
   }
+}
+
+// Добавляем POST метод для запросов от клиента
+export async function POST(request: NextRequest) {
+  return GET(request)
 }
