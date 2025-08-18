@@ -198,7 +198,7 @@ export default function DashboardPage() {
           <CardContent>
             <div className="text-2xl font-bold">${data?.stats.totalExpenses.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground">
-              {data?.stats.totalGross > 0 
+              {data && data.stats.totalGross > 0 
                 ? `${((data.stats.totalExpenses / data.stats.totalGross) * 100).toFixed(1)}% от брутто`
                 : '0% от брутто'
               }
