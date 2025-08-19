@@ -6,7 +6,10 @@ export const dynamic = 'force-dynamic'
 export async function GET() {
   try {
     const supabase = getServiceSupabase()
-    const results = {
+    const results: {
+      steps: any[]
+      success: boolean
+    } = {
       steps: [],
       success: false
     }
