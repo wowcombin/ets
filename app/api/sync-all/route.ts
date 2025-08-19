@@ -99,21 +99,50 @@ export async function GET() {
     const sheets = google.sheets({ version: 'v4', auth })
     const supabase = getServiceSupabase()
     
-    // STEP 1: Очищаем старые данные за текущий месяц
-    console.log('Clearing old data...')
-    await supabase.from('transactions').delete().eq('month', monthCode)
-    await supabase.from('expenses').delete().eq('month', monthCode)
-    await supabase.from('salaries').delete().eq('month', monthCode)
+    // ВАЖНО: Полностью очищаем ВСЕ старые данные за текущий месяц
+    console.log('Clearing ALL old data for current month...')
     
-    // STEP 2: Сначала добавляем всех менеджеров
-    console.log('Processing managers...')
+    // Удаляем транзакции
+    const { error: delTransError } = await supabase
+      .from('transactions')
+      .delete()
+      .eq('month', monthCode)
+    
+    if (delTransError) {
+      console.error('Error deleting transactions:', delTransError)
+    }
+    
+    // Удаляем расходы
+    const { error: delExpError } = await supabase
+      .from('expenses')
+      .delete()
+      .eq('month', monthCode)
+    
+    if (delExpError) {
+      console.error('Error deleting expenses:', delExpError)
+    }
+    
+    // Удаляем зарплаты
+    const { error: delSalError } = await supabase
+      .from('salaries')
+      .delete()
+      .eq('month', monthCode)
+    
+    if (delSalError) {
+      console.error('Error deleting salaries:', delSalError)
+    }
+    
+    console.log('Old data cleared successfully')
+    
+    // STEP 1: Создаем/обновляем всех менеджеров ПЕРВЫМИ
+    console.log('Processing managers first...')
     const { data: existingEmployees } = await supabase
       .from('employees')
       .select('*')
     
     const employeeMap = new Map()
     
-    // Добавляем менеджеров первыми
+    // Сначала обрабатываем менеджеров
     for (const [managerUsername, managerData] of Object.entries(MANAGERS)) {
       let manager = existingEmployees?.find(e => e.username === managerUsername)
       
@@ -127,13 +156,15 @@ export async function GET() {
       }
       
       if (manager) {
-        await supabase
+        const { error } = await supabase
           .from('employees')
           .update(employeeData)
           .eq('id', manager.id)
         
-        employeeMap.set(managerUsername, manager.id)
-        console.log(`Updated manager: ${managerUsername}`)
+        if (!error) {
+          employeeMap.set(managerUsername, manager.id)
+          console.log(`Updated manager: ${managerUsername}`)
+        }
       } else {
         const { data: newEmp, error } = await supabase
           .from('employees')
@@ -154,26 +185,25 @@ export async function GET() {
       }
     }
     
-    // STEP 3: Обрабатываем сотрудников из папок
-    console.log('Processing employee folders...')
-    
-    // Получаем ВСЕ папки, увеличиваем лимит до 1000
+    // STEP 2: Получаем папки сотрудников
+    console.log('Getting employee folders...')
     const foldersResponse = await drive.files.list({
       q: `'${JUNIOR_FOLDER_ID}' in parents and mimeType='application/vnd.google-apps.folder' and name contains '@'`,
       fields: 'files(id, name)',
-      pageSize: 1000, // Увеличиваем лимит
+      pageSize: 1000,
     })
     
     const folders = foldersResponse.data.files || []
     console.log(`Found ${folders.length} employee folders`)
     
+    // Обрабатываем папки сотрудников
     for (const folder of folders) {
       if (!folder.id || !folder.name) continue
       
       const isFired = folder.name.includes('УВОЛЕН')
       const cleanUsername = folder.name.replace(' УВОЛЕН', '').trim()
       
-      // Пропускаем менеджеров, мы их уже обработали
+      // Пропускаем менеджеров - мы их уже обработали
       if (MANAGERS.hasOwnProperty(cleanUsername)) {
         console.log(`Skipping manager folder: ${cleanUsername}`)
         continue
@@ -199,7 +229,6 @@ export async function GET() {
           .eq('id', employee.id)
         
         employeeMap.set(cleanUsername, employee.id)
-        console.log(`Updated employee: ${cleanUsername}`)
       } else {
         const { data: newEmp, error } = await supabase
           .from('employees')
@@ -210,22 +239,20 @@ export async function GET() {
         if (newEmp && !error) {
           employee = newEmp
           employeeMap.set(cleanUsername, newEmp.id)
-          console.log(`Created employee: ${cleanUsername}`)
-        } else {
-          results.errors.push(`Failed to create employee ${cleanUsername}: ${error?.message}`)
-          continue
         }
       }
       
-      results.stats.employeesProcessed++
-      results.employeesList.push(cleanUsername)
+      if (employee) {
+        results.stats.employeesProcessed++
+        results.employeesList.push(cleanUsername)
+      }
     }
     
-    console.log(`Total employees in map: ${employeeMap.size}`)
-    console.log('Employees:', Array.from(employeeMap.keys()))
+    console.log(`Total employees in system: ${employeeMap.size}`)
     
-    // STEP 4: Читаем транзакции сотрудников
+    // STEP 3: Читаем транзакции из папок сотрудников
     console.log('Reading employee transactions...')
+    let allTransactions = []
     
     for (const folder of folders) {
       if (!folder.id || !folder.name) continue
@@ -239,7 +266,6 @@ export async function GET() {
       }
       
       try {
-        // Ищем файл WORK в папке сотрудника
         const workFiles = await drive.files.list({
           q: `'${folder.id}' in parents and mimeType='application/vnd.google-apps.spreadsheet' and name contains 'WORK'`,
           fields: 'files(id, name)',
@@ -252,7 +278,7 @@ export async function GET() {
           continue
         }
         
-        // Сначала проверяем какие листы есть в таблице
+        // Проверяем наличие листа
         try {
           const spreadsheet = await sheets.spreadsheets.get({
             spreadsheetId: workFile.id,
@@ -260,9 +286,7 @@ export async function GET() {
           })
           
           const sheetNames = spreadsheet.data.sheets?.map(s => s.properties?.title) || []
-          console.log(`Sheets in ${cleanUsername}'s workbook:`, sheetNames)
           
-          // Проверяем есть ли лист с нужным месяцем
           if (!sheetNames.includes(monthName)) {
             console.log(`No ${monthName} sheet for ${cleanUsername}`)
             continue
@@ -272,8 +296,8 @@ export async function GET() {
           continue
         }
         
-        // Читаем данные с листа текущего месяца
-        const range = `${monthName}!A2:D5000` // Увеличиваем до 5000 строк
+        // Читаем транзакции
+        const range = `${monthName}!A2:D5000`
         
         try {
           const response = await sheets.spreadsheets.values.get({
@@ -282,10 +306,9 @@ export async function GET() {
           })
           
           const rows = response.data.values || []
-          const transactions = []
           
           for (const row of rows) {
-            if (row[0]) { // Если есть название казино
+            if (row[0]) {
               const casino = String(row[0]).trim()
               const depositGbp = parseNumberValue(row[1])
               const withdrawalGbp = parseNumberValue(row[2])
@@ -295,7 +318,7 @@ export async function GET() {
               const withdrawalUsd = withdrawalGbp * GBP_TO_USD_RATE
               const grossProfit = withdrawalUsd - depositUsd
               
-              transactions.push({
+              allTransactions.push({
                 employee_id: employeeId,
                 month: monthCode,
                 casino_name: casino,
@@ -312,49 +335,28 @@ export async function GET() {
             }
           }
           
-          if (transactions.length > 0) {
-            const { error } = await supabase
-              .from('transactions')
-              .insert(transactions)
-            
-            if (!error) {
-              results.stats.transactionsCreated += transactions.length
-              console.log(`Added ${transactions.length} transactions for ${cleanUsername}`)
-              results.details.push({
-                employee: cleanUsername,
-                transactions: transactions.length,
-                totalGross: transactions.reduce((sum, t) => sum + t.gross_profit_usd, 0)
-              })
-            } else {
-              results.errors.push(`Error inserting transactions for ${cleanUsername}: ${error.message}`)
-            }
-          } else {
-            console.log(`No transactions found for ${cleanUsername} in ${monthName}`)
-          }
+          console.log(`Found ${rows.filter(r => r[0]).length} transactions for ${cleanUsername}`)
         } catch (sheetError: any) {
           console.log(`Error reading sheet for ${cleanUsername}:`, sheetError.message)
         }
       } catch (error: any) {
         console.error(`Error processing ${cleanUsername}:`, error.message)
-        results.errors.push(`Error for ${cleanUsername}: ${error.message}`)
       }
     }
     
-    // STEP 5: Читаем тестовые транзакции @sobroffice
+    // STEP 4: Читаем тестовые транзакции @sobroffice
     console.log('Reading test transactions...')
     
     try {
       const sobrofficeId = employeeMap.get('@sobroffice')
       
       if (sobrofficeId) {
-        // Проверяем листы в тестовой таблице
         const testSpreadsheet = await sheets.spreadsheets.get({
           spreadsheetId: TEST_SPREADSHEET_ID,
           fields: 'sheets.properties.title'
         })
         
         const sheetNames = testSpreadsheet.data.sheets?.map(s => s.properties?.title) || []
-        console.log('Test spreadsheet sheets:', sheetNames)
         
         if (sheetNames.includes(monthName)) {
           const testRange = `${monthName}!A2:D5000`
@@ -364,7 +366,6 @@ export async function GET() {
           })
           
           const rows = testResponse.data.values || []
-          const transactions = []
           
           for (const row of rows) {
             if (row[0]) {
@@ -377,7 +378,7 @@ export async function GET() {
               const withdrawalUsd = withdrawalGbp * GBP_TO_USD_RATE
               const grossProfit = withdrawalUsd - depositUsd
               
-              transactions.push({
+              allTransactions.push({
                 employee_id: sobrofficeId,
                 month: monthCode,
                 casino_name: casino,
@@ -394,33 +395,29 @@ export async function GET() {
             }
           }
           
-          if (transactions.length > 0) {
-            const { error } = await supabase
-              .from('transactions')
-              .insert(transactions)
-            
-            if (!error) {
-              results.stats.transactionsCreated += transactions.length
-              console.log(`Added ${transactions.length} test transactions`)
-              results.details.push({
-                employee: '@sobroffice (test)',
-                transactions: transactions.length,
-                totalGross: transactions.reduce((sum, t) => sum + t.gross_profit_usd, 0)
-              })
-            } else {
-              results.errors.push(`Error inserting test transactions: ${error.message}`)
-            }
-          }
-        } else {
-          console.log(`No ${monthName} sheet in test spreadsheet`)
+          console.log(`Found ${rows.filter(r => r[0]).length} test transactions`)
         }
       }
     } catch (error: any) {
       console.error('Error processing test spreadsheet:', error)
-      results.errors.push(`Test sheet error: ${error.message}`)
     }
     
-    // STEP 6: Читаем расходы
+    // Сохраняем ВСЕ транзакции одним запросом
+    if (allTransactions.length > 0) {
+      const { error } = await supabase
+        .from('transactions')
+        .insert(allTransactions)
+      
+      if (!error) {
+        results.stats.transactionsCreated = allTransactions.length
+        console.log(`Successfully inserted ${allTransactions.length} transactions`)
+      } else {
+        console.error('Error inserting transactions:', error)
+        results.errors.push(`Transaction insert error: ${error.message}`)
+      }
+    }
+    
+    // STEP 5: Читаем расходы
     console.log('Reading expenses...')
     
     try {
@@ -458,38 +455,34 @@ export async function GET() {
       console.log('Could not read expenses:', error.message)
     }
     
-    // STEP 7: Пересчитываем net profit с учетом расходов
-    if (results.stats.totalGross > 0 && results.stats.totalExpenses > 0) {
+    // STEP 6: Пересчитываем net profit
+    results.stats.totalNet = results.stats.totalGross - results.stats.totalExpenses
+    
+    // Обновляем net profit если расходы > 20%
+    if (results.stats.totalExpenses > results.stats.totalGross * 0.2) {
       const expenseRatio = results.stats.totalExpenses / results.stats.totalGross
       
-      if (expenseRatio > 0.2) {
-        const { data: allTransactions } = await supabase
-          .from('transactions')
-          .select('*')
-          .eq('month', monthCode)
-        
-        if (allTransactions) {
-          for (const transaction of allTransactions) {
-            const netProfit = transaction.gross_profit_usd - (transaction.gross_profit_usd * expenseRatio)
-            await supabase
-              .from('transactions')
-              .update({ net_profit_usd: netProfit })
-              .eq('id', transaction.id)
-          }
-          
-          results.stats.totalNet = results.stats.totalGross - results.stats.totalExpenses
+      const { data: allTrans } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('month', monthCode)
+      
+      if (allTrans) {
+        for (const transaction of allTrans) {
+          const netProfit = transaction.gross_profit_usd * (1 - expenseRatio)
+          await supabase
+            .from('transactions')
+            .update({ net_profit_usd: netProfit })
+            .eq('id', transaction.id)
         }
-      } else {
-        results.stats.totalNet = results.stats.totalGross
       }
-    } else {
-      results.stats.totalNet = results.stats.totalGross
     }
     
-    // STEP 8: Читаем и сохраняем карты
+    // STEP 7: Обрабатываем карты
     console.log('Processing cards...')
     
     try {
+      // Очищаем старые карты
       await supabase.from('cards').delete().neq('id', '00000000-0000-0000-0000-000000000000')
       
       const cardsRange = 'REVO UK!A2:E1000'
@@ -501,13 +494,12 @@ export async function GET() {
       const rows = cardsResponse.data.values || []
       const cardsToInsert = []
       
-      // Получаем все транзакции для проверки использования карт
+      // Получаем использованные карты
       const { data: monthTransactions } = await supabase
         .from('transactions')
         .select('card_number, employee_id, casino_name')
         .eq('month', monthCode)
       
-      // Создаем map использованных карт
       const usedCards = new Map()
       monthTransactions?.forEach(t => {
         if (t.card_number) {
@@ -547,112 +539,10 @@ export async function GET() {
       }
     } catch (error: any) {
       console.log('Could not process cards:', error.message)
-      results.errors.push(`Cards error: ${error.message}`)
     }
     
-    // STEP 9: Рассчитываем зарплаты
-    console.log('Calculating salaries...')
-    
-    try {
-      const { data: transactions } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('month', monthCode)
-      
-      if (transactions && transactions.length > 0) {
-        const { data: employees } = await supabase
-          .from('employees')
-          .select('*')
-          .eq('is_active', true) // Только активные сотрудники
-        
-        // Группируем транзакции по сотрудникам
-        const employeeTransactions = new Map()
-        for (const transaction of transactions) {
-          if (!employeeTransactions.has(transaction.employee_id)) {
-            employeeTransactions.set(transaction.employee_id, [])
-          }
-          employeeTransactions.get(transaction.employee_id).push(transaction)
-        }
-        
-        // Находим лидера месяца
-        let maxGrossProfit = 0
-        let maxTransaction = null
-        for (const transaction of transactions) {
-          if (transaction.gross_profit_usd > maxGrossProfit) {
-            maxGrossProfit = transaction.gross_profit_usd
-            maxTransaction = transaction
-          }
-        }
-        
-        // Рассчитываем зарплаты
-        const salariesToInsert = []
-        
-        for (const employee of employees || []) {
-          const empTransactions = employeeTransactions.get(employee.id) || []
-          const empGross = empTransactions.reduce((sum: number, t: any) => sum + (t.gross_profit_usd || 0), 0)
-          
-          let baseSalary = 0
-          let bonus = 0
-          let leaderBonus = 0
-          
-          if (employee.username === '@sobroffice') {
-            // Тест менеджер: 10% от всего брутто работников + 10% от своих тестов
-            const workersGross = transactions.filter((t: any) => {
-              const emp = employees?.find(e => e.id === t.employee_id)
-              return emp && !emp.is_manager
-            }).reduce((sum: number, t: any) => sum + (t.gross_profit_usd || 0), 0)
-            
-            baseSalary = workersGross * 0.1 + empGross * 0.1
-          } else if (employee.is_manager) {
-            // Менеджеры получают процент от общего нетто или брутто
-            const percentage = (employee.profit_percentage || 10) / 100
-            
-            if (results.stats.totalExpenses > results.stats.totalGross * 0.2) {
-              baseSalary = (results.stats.totalGross - results.stats.totalExpenses) * percentage
-            } else {
-              baseSalary = results.stats.totalGross * percentage
-            }
-          } else if (empGross > 0) {
-            // Обычные работники
-            if (empGross > 200) {
-              baseSalary = empGross * 0.1
-              bonus = 200
-            } else {
-              baseSalary = empGross * 0.1
-            }
-            
-            // Бонус лидеру месяца
-            if (maxTransaction && maxTransaction.employee_id === employee.id) {
-              leaderBonus = maxGrossProfit * 0.1
-            }
-          }
-          
-          const totalSalary = baseSalary + bonus + leaderBonus
-          
-          // Сохраняем зарплату для всех, у кого она больше 0
-          if (totalSalary > 0 || employee.is_manager) {
-            salariesToInsert.push({
-              employee_id: employee.id,
-              month: monthCode,
-              base_salary: baseSalary,
-              bonus,
-              leader_bonus: leaderBonus,
-              total_salary: totalSalary,
-              is_paid: false,
-            })
-          }
-        }
-        
-        if (salariesToInsert.length > 0) {
-          await supabase.from('salaries').insert(salariesToInsert)
-          results.stats.salariesCalculated = salariesToInsert.length
-          console.log(`Calculated ${salariesToInsert.length} salaries`)
-        }
-      }
-    } catch (error: any) {
-      console.log('Could not calculate salaries:', error.message)
-      results.errors.push(`Salaries error: ${error.message}`)
-    }
+    // STEP 8: НЕ рассчитываем зарплаты здесь - это отдельный процесс
+    console.log('Salaries will be calculated separately')
     
     const elapsed = Date.now() - startTime
     
@@ -668,15 +558,12 @@ export async function GET() {
     
     console.log('=== SYNC COMPLETED ===')
     console.log(`Time: ${elapsed}ms`)
-    console.log(`Total Employees in DB: ${finalEmpCount}`)
-    console.log(`Processed Employees: ${results.stats.employeesProcessed}`)
-    console.log(`Employees List: ${results.employeesList.join(', ')}`)
-    console.log(`Transactions: ${results.stats.transactionsCreated}`)
-    console.log(`Cards: ${results.stats.cardsProcessed}`)
+    console.log(`Total Employees: ${finalEmpCount}`)
+    console.log(`Employees Processed: ${results.stats.employeesProcessed}`)
+    console.log(`Transactions: ${finalTransCount}`)
     console.log(`Total Gross: $${results.stats.totalGross.toFixed(2)}`)
     console.log(`Total Net: $${results.stats.totalNet.toFixed(2)}`)
     console.log(`Expenses: $${results.stats.totalExpenses.toFixed(2)}`)
-    console.log(`Salaries: ${results.stats.salariesCalculated}`)
     
     return NextResponse.json({
       success: true,
@@ -691,7 +578,7 @@ export async function GET() {
       details: results.details,
       errors: results.errors,
       employeesList: results.employeesList,
-      message: `Sync completed! Processed ${results.stats.employeesProcessed} employees for ${monthName} ${new Date().getFullYear()}`
+      message: `Синхронизация завершена! Обработано ${results.stats.employeesProcessed} сотрудников, ${results.stats.transactionsCreated} транзакций`
     })
     
   } catch (error: any) {
