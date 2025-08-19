@@ -15,6 +15,8 @@ export async function GET() {
     const supabase = getServiceSupabase()
     const monthCode = getCurrentMonthCode()
     
+    console.log(`Calculating salaries for ${monthCode}...`)
+    
     // Получаем все транзакции за месяц
     const { data: transactions, error: transError } = await supabase
       .from('transactions')
@@ -22,25 +24,30 @@ export async function GET() {
       .eq('month', monthCode)
     
     if (transError) throw transError
+    
     if (!transactions || transactions.length === 0) {
       return NextResponse.json({
         success: false,
-        error: 'No transactions found for current month'
+        error: 'No transactions found for current month. Please sync data first.'
       })
     }
     
-    // Получаем всех сотрудников
+    // Получаем всех АКТИВНЫХ сотрудников (включая менеджеров)
     const { data: employees, error: empError } = await supabase
       .from('employees')
       .select('*')
+      .eq('is_active', true)
     
     if (empError) throw empError
-    if (!employees) {
+    
+    if (!employees || employees.length === 0) {
       return NextResponse.json({
         success: false,
-        error: 'No employees found'
+        error: 'No active employees found'
       })
     }
+    
+    console.log(`Found ${employees.length} active employees (including managers)`)
     
     // Группируем транзакции по сотрудникам
     const employeeTransactions = new Map()
@@ -51,7 +58,7 @@ export async function GET() {
       employeeTransactions.get(transaction.employee_id).push(transaction)
     }
     
-    // Находим лидера месяца (самый большой брутто по одной транзакции)
+    // Находим лидера месяца (самая большая транзакция)
     let maxGrossProfit = 0
     let maxTransaction = null
     for (const transaction of transactions) {
@@ -65,7 +72,15 @@ export async function GET() {
     const totalGross = transactions.reduce((sum, t) => sum + (t.gross_profit_usd || 0), 0)
     const totalNet = transactions.reduce((sum, t) => sum + (t.net_profit_usd || 0), 0)
     
-    console.log(`Total gross: $${totalGross}, Total net: $${totalNet}`)
+    // Получаем расходы
+    const { data: expenses } = await supabase
+      .from('expenses')
+      .select('amount_usd')
+      .eq('month', monthCode)
+    
+    const totalExpenses = expenses?.reduce((sum, e) => sum + (e.amount_usd || 0), 0) || 0
+    
+    console.log(`Total gross: $${totalGross.toFixed(2)}, Total net: $${totalNet.toFixed(2)}, Expenses: $${totalExpenses.toFixed(2)}`)
     
     // Удаляем старые зарплаты за месяц
     await supabase
@@ -73,9 +88,10 @@ export async function GET() {
       .delete()
       .eq('month', monthCode)
     
-    const salariesCreated = []
+    const salariesToInsert = []
+    const salaryDetails = []
     
-    // Рассчитываем зарплаты для каждого сотрудника
+    // Рассчитываем зарплаты для КАЖДОГО сотрудника
     for (const employee of employees) {
       const empTransactions = employeeTransactions.get(employee.id) || []
       const empGross = empTransactions.reduce((sum: number, t: any) => sum + (t.gross_profit_usd || 0), 0)
@@ -85,57 +101,83 @@ export async function GET() {
       let leaderBonus = 0
       
       if (employee.username === '@sobroffice') {
-        // Тест менеджер: 10% от всего нетто + 10% от своих тестов
-        baseSalary = totalNet * 0.1 + empGross * 0.1
-      } else if (employee.is_manager) {
-        // Менеджеры получают процент от общего нетто
-        const percentage = (employee.profit_percentage || 10) / 100
-        baseSalary = totalNet * percentage
-      } else if (empGross > 0) {
-        // Обычные работники: 10% от своего брутто
-        baseSalary = empGross * 0.1
+        // Тест менеджер: 10% от брутто всех работников (не менеджеров) + 10% от своих тестов
+        const workersGross = transactions.filter((t: any) => {
+          const emp = employees?.find(e => e.id === t.employee_id)
+          return emp && !emp.is_manager // только работники, не менеджеры
+        }).reduce((sum: number, t: any) => sum + (t.gross_profit_usd || 0), 0)
         
-        // Бонус за результат > $200
-        if (empGross > 200) {
-          bonus = 200
+        baseSalary = (workersGross * 0.1) + (empGross * 0.1)
+        
+        console.log(`@sobroffice: workers gross = $${workersGross}, own gross = $${empGross}, salary = $${baseSalary}`)
+        
+      } else if (employee.is_manager) {
+        // Другие менеджеры получают процент от общего брутто или нетто
+        const percentage = (employee.profit_percentage || 10) / 100
+        
+        // Если расходы больше 20% от брутто, считаем от (брутто - расходы)
+        if (totalExpenses > totalGross * 0.2) {
+          baseSalary = (totalGross - totalExpenses) * percentage
+        } else {
+          baseSalary = totalGross * percentage
         }
         
-        // Бонус лидеру месяца
-        if (maxTransaction && maxTransaction.employee_id === employee.id) {
-          leaderBonus = maxGrossProfit * 0.1
+        console.log(`${employee.username}: ${employee.profit_percentage}% of $${totalGross} = $${baseSalary}`)
+        
+      } else {
+        // Обычные работники: 10% от своего брутто
+        if (empGross > 0) {
+          baseSalary = empGross * 0.1
+          
+          // Бонус за результат > $200
+          if (empGross > 200) {
+            bonus = 200
+          }
+          
+          // Бонус лидеру месяца (за самую большую транзакцию)
+          if (maxTransaction && maxTransaction.employee_id === employee.id) {
+            leaderBonus = maxGrossProfit * 0.1
+          }
         }
       }
       
       const totalSalary = baseSalary + bonus + leaderBonus
       
-      // Сохраняем зарплату только если она больше 0
-      if (totalSalary > 0) {
-        const { data: salaryData, error: salaryError } = await supabase
-          .from('salaries')
-          .insert([{
-            employee_id: employee.id,
-            month: monthCode,
-            base_salary: baseSalary,
-            bonus,
-            leader_bonus: leaderBonus,
-            total_salary: totalSalary,
-            is_paid: false,
-          }])
-          .select()
-          .single()
+      // Сохраняем зарплату для ВСЕХ у кого она > 0 ИЛИ кто является менеджером
+      if (totalSalary > 0 || employee.is_manager) {
+        salariesToInsert.push({
+          employee_id: employee.id,
+          month: monthCode,
+          base_salary: baseSalary,
+          bonus,
+          leader_bonus: leaderBonus,
+          total_salary: totalSalary,
+          is_paid: false,
+        })
         
-        if (!salaryError && salaryData) {
-          salariesCreated.push({
-            username: employee.username,
-            base: baseSalary.toFixed(2),
-            bonus: bonus.toFixed(2),
-            leader: leaderBonus.toFixed(2),
-            total: totalSalary.toFixed(2)
-          })
-        } else {
-          console.error(`Error creating salary for ${employee.username}:`, salaryError)
-        }
+        salaryDetails.push({
+          username: employee.username,
+          is_manager: employee.is_manager,
+          base: baseSalary.toFixed(2),
+          bonus: bonus.toFixed(2),
+          leader: leaderBonus.toFixed(2),
+          total: totalSalary.toFixed(2)
+        })
       }
+    }
+    
+    // Вставляем все зарплаты
+    if (salariesToInsert.length > 0) {
+      const { error: salaryError } = await supabase
+        .from('salaries')
+        .insert(salariesToInsert)
+      
+      if (salaryError) {
+        console.error('Error inserting salaries:', salaryError)
+        throw salaryError
+      }
+      
+      console.log(`Successfully calculated ${salariesToInsert.length} salaries`)
     }
     
     return NextResponse.json({
@@ -144,11 +186,14 @@ export async function GET() {
       stats: {
         totalGross: totalGross.toFixed(2),
         totalNet: totalNet.toFixed(2),
+        totalExpenses: totalExpenses.toFixed(2),
         maxTransaction: maxGrossProfit.toFixed(2),
         leaderEmployee: maxTransaction ? employees.find(e => e.id === maxTransaction.employee_id)?.username : null,
-        salariesCreated: salariesCreated.length
+        salariesCreated: salariesToInsert.length,
+        totalEmployees: employees.length,
+        activeEmployees: employees.filter(e => e.is_active).length
       },
-      salaries: salariesCreated
+      salaries: salaryDetails
     })
     
   } catch (error: any) {
