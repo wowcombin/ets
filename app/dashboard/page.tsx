@@ -212,8 +212,8 @@ export default function DashboardPage() {
                 ${(data?.stats?.totalExpenses || 0).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
               <p className="text-xs text-gray-500 mt-2">
-                {data?.stats?.totalGross > 0 
-                  ? `${((data.stats.totalExpenses / data.stats.totalGross) * 100).toFixed(1)}% от брутто`
+                {data?.stats?.totalGross && data.stats.totalGross > 0 
+                  ? `${(((data.stats.totalExpenses || 0) / data.stats.totalGross) * 100).toFixed(1)}% от брутто`
                   : '0% от брутто'
                 }
               </p>
