@@ -5,9 +5,12 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://oxnrptswkkf
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94bnJwdHN3a2tmeW5qdW10dm5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUyMDY5MTMsImV4cCI6MjA3MDc4MjkxM30.0iTHTooHPDs46qXmDuWFe0Iedm3fzW-de92HjFPdjf8'
 
 // Создаем клиент для использования на клиенте
+// Используем service role key для полного доступа
+const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94bnJwdHN3a2tmeW5qdW10dm5iIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NTIwNjkxMywiZXhwIjoyMDcwNzgyOTEzfQ.bDYjlBpg4xLPy6ytaYU6XtjKvOpKl0leGkZFvy1o_iE'
+
 export const supabase = createClient(
   supabaseUrl,
-  supabaseAnonKey,
+  typeof window !== 'undefined' ? supabaseAnonKey : serviceKey,
   {
     auth: {
       persistSession: true,
