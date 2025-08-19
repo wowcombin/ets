@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase/client'
 import { 
   Card, 
   CardContent, 
@@ -46,64 +45,18 @@ export default function DashboardPage() {
     return `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`
   })
 
-  // Загружаем данные из Supabase
+  // Загружаем данные из API
   const loadData = async () => {
     setLoading(true)
     try {
-      // Получаем сотрудников
-      const { data: employees } = await supabase
-        .from('employees')
-        .select('*')
-        .order('username')
-
-      // Получаем транзакции за текущий месяц
-      const { data: transactions } = await supabase
-        .from('transactions')
-        .select('*, employee:employees(username)')
-        .eq('month', currentMonth)
-        .order('created_at', { ascending: false })
-
-      // Получаем расходы
-      const { data: expenses } = await supabase
-        .from('expenses')
-        .select('*')
-        .eq('month', currentMonth)
-
-      // Получаем зарплаты
-      const { data: salaries } = await supabase
-        .from('salaries')
-        .select('*, employee:employees(username)')
-        .eq('month', currentMonth)
-        .order('total_salary', { ascending: false })
-
-      // Получаем карты
-      const { data: cards } = await supabase
-        .from('cards')
-        .select('*')
-        .order('card_number')
-
-      // Рассчитываем статистику
-      const totalGross = transactions?.reduce((sum, t) => sum + (t.gross_profit_usd || 0), 0) || 0
-      const totalNet = transactions?.reduce((sum, t) => sum + (t.net_profit_usd || 0), 0) || 0
-      const totalExpenses = expenses?.reduce((sum, e) => sum + (e.amount_usd || 0), 0) || 0
-      const usedCardCount = cards?.filter(c => c.status === 'used').length || 0
-
-      setData({
-        employees: employees || [],
-        transactions: transactions || [],
-        expenses: expenses || [],
-        salaries: salaries || [],
-        cards: cards || [],
-        month: currentMonth,
-        stats: {
-          totalGross,
-          totalNet,
-          totalExpenses,
-          employeeCount: employees?.length || 0,
-          cardCount: cards?.length || 0,
-          usedCardCount,
-        }
-      })
+      const response = await fetch('/api/dashboard-data')
+      const result = await response.json()
+      
+      if (result.success) {
+        setData(result.data)
+      } else {
+        console.error('Failed to load data:', result.error)
+      }
     } catch (error) {
       console.error('Error loading data:', error)
     } finally {
