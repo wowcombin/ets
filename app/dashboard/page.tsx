@@ -68,8 +68,8 @@ export default function DashboardPage() {
   const syncData = async () => {
     setSyncing(true)
     try {
-      // Используем быструю синхронизацию
-      const response = await fetch('/api/sync-fast', {
+      // Используем полную синхронизацию
+      const response = await fetch('/api/sync-complete', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -78,7 +78,16 @@ export default function DashboardPage() {
       const result = await response.json()
       
       if (result.success) {
-        alert(`Синхронизация завершена! Создано ${result.stats.employeesCreated} сотрудников, ${result.stats.testTransactions} тестовых транзакций`)
+        alert(`Синхронизация завершена!\n` +
+          `Сотрудников: ${result.stats.employeesTotal}\n` +
+          `Транзакций: ${result.stats.transactionsTotal}\n` +
+          `Карт: ${result.stats.cardsTotal}\n` +
+          `Время: ${result.stats.timeElapsed}`)
+        
+        // Рассчитываем зарплаты
+        await fetch('/api/calculate-salaries')
+        
+        // Перезагружаем данные
         await loadData()
       } else {
         console.error('Sync error details:', result)
