@@ -97,12 +97,15 @@ export async function GET(request: NextRequest) {
       .select('id, username')
     
     // Обновляем или создаем сотрудников
+    let createdCount = 0
+    let updatedCount = 0
+    
     for (const empData of employeesToCreate) {
       const existing = existingEmployees?.find(e => e.username === empData.username)
       
       if (existing) {
         // Обновляем существующего
-        await supabase
+        const { error } = await supabase
           .from('employees')
           .update({
             folder_id: empData.folder_id,
@@ -111,7 +114,12 @@ export async function GET(request: NextRequest) {
           })
           .eq('id', existing.id)
         
-        employeeMap.set(empData.username, existing.id)
+        if (!error) {
+          employeeMap.set(empData.username, existing.id)
+          updatedCount++
+        } else {
+          console.error(`Error updating employee ${empData.username}:`, error)
+        }
       } else {
         // Создаем нового
         const { data: newEmp, error } = await supabase
@@ -122,12 +130,15 @@ export async function GET(request: NextRequest) {
         
         if (!error && newEmp) {
           employeeMap.set(empData.username, newEmp.id)
+          createdCount++
+          console.log(`Created employee ${empData.username} with ID ${newEmp.id}`)
         } else {
           console.error(`Error creating employee ${empData.username}:`, error)
         }
       }
     }
     
+    console.log(`Created ${createdCount} new employees, updated ${updatedCount} existing`)
     console.log(`Employee map has ${employeeMap.size} entries`)
     
     // Простая проверка - читаем одну таблицу для теста
@@ -213,10 +224,16 @@ export async function GET(request: NextRequest) {
       success: true,
       stats: {
         employeesTotal: finalEmpCount || 0,
-        employeesCreated: employeeMap.size,
+        employeesCreated: createdCount,
+        employeesUpdated: updatedCount,
         testTransactions: testTransactionCount,
         transactionsTotal: finalTransCount || 0,
         timeElapsed: `${elapsed}ms`,
+      },
+      debug: {
+        employeeMapSize: employeeMap.size,
+        employeesToCreate: employeesToCreate.length,
+        existingEmployees: existingEmployees?.length || 0
       },
       message: `Fast sync completed in ${elapsed}ms`
     })
