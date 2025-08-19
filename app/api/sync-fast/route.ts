@@ -91,28 +91,44 @@ export async function GET(request: NextRequest) {
     
     console.log(`Creating/updating ${employeesToCreate.length} employees...`)
     
-    // Удаляем старых сотрудников и создаем новых
-    await supabase.from('employees').delete().neq('id', '00000000-0000-0000-0000-000000000000')
-    
-    const { data: createdEmployees, error: empError } = await supabase
+    // Получаем существующих сотрудников
+    const { data: existingEmployees } = await supabase
       .from('employees')
-      .insert(employeesToCreate)
-      .select()
+      .select('id, username')
     
-    if (empError) {
-      console.error('Error creating employees:', empError)
-      return NextResponse.json({ 
-        success: false, 
-        error: `Failed to create employees: ${empError.message}` 
-      })
+    // Обновляем или создаем сотрудников
+    for (const empData of employeesToCreate) {
+      const existing = existingEmployees?.find(e => e.username === empData.username)
+      
+      if (existing) {
+        // Обновляем существующего
+        await supabase
+          .from('employees')
+          .update({
+            folder_id: empData.folder_id,
+            is_manager: empData.is_manager,
+            profit_percentage: empData.profit_percentage,
+          })
+          .eq('id', existing.id)
+        
+        employeeMap.set(empData.username, existing.id)
+      } else {
+        // Создаем нового
+        const { data: newEmp, error } = await supabase
+          .from('employees')
+          .insert([empData])
+          .select()
+          .single()
+        
+        if (!error && newEmp) {
+          employeeMap.set(empData.username, newEmp.id)
+        } else {
+          console.error(`Error creating employee ${empData.username}:`, error)
+        }
+      }
     }
     
-    // Создаем map для быстрого поиска
-    for (const emp of createdEmployees || []) {
-      employeeMap.set(emp.username, emp.id)
-    }
-    
-    console.log(`Created ${createdEmployees?.length || 0} employees`)
+    console.log(`Employee map has ${employeeMap.size} entries`)
     
     // Простая проверка - читаем одну таблицу для теста
     const sheets = google.sheets({ version: 'v4', auth })
@@ -154,22 +170,27 @@ export async function GET(request: NextRequest) {
       }
       
       if (transactions.length > 0) {
-        // Удаляем старые транзакции @sobroffice
-        await supabase
-          .from('transactions')
-          .delete()
-          .eq('employee_id', employeeMap.get('@sobroffice'))
-          .eq('month', monthCode)
-        
-        // Вставляем новые
-        const { error: transError } = await supabase
-          .from('transactions')
-          .insert(transactions)
-        
-        if (transError) {
-          console.error('Error inserting test transactions:', transError)
-        } else {
-          testTransactionCount = transactions.length
+        // Удаляем старые транзакции @sobroffice за этот месяц
+        const sobrofficeId = employeeMap.get('@sobroffice')
+        if (sobrofficeId) {
+          await supabase
+            .from('transactions')
+            .delete()
+            .eq('employee_id', sobrofficeId)
+            .eq('month', monthCode)
+          
+          // Вставляем новые транзакции
+          const { data: insertedTrans, error: transError } = await supabase
+            .from('transactions')
+            .insert(transactions)
+            .select()
+          
+          if (transError) {
+            console.error('Error inserting test transactions:', transError)
+          } else {
+            testTransactionCount = insertedTrans?.length || 0
+            console.log(`Inserted ${testTransactionCount} test transactions`)
+          }
         }
       }
     } catch (error) {
@@ -178,11 +199,23 @@ export async function GET(request: NextRequest) {
     
     const elapsed = Date.now() - startTime
     
+    // Получаем финальные подсчеты
+    const { count: finalEmpCount } = await supabase
+      .from('employees')
+      .select('*', { count: 'exact', head: true })
+    
+    const { count: finalTransCount } = await supabase
+      .from('transactions')
+      .select('*', { count: 'exact', head: true })
+      .eq('month', monthCode)
+    
     return NextResponse.json({
       success: true,
       stats: {
-        employeesCreated: createdEmployees?.length || 0,
+        employeesTotal: finalEmpCount || 0,
+        employeesCreated: employeeMap.size,
         testTransactions: testTransactionCount,
+        transactionsTotal: finalTransCount || 0,
         timeElapsed: `${elapsed}ms`,
       },
       message: `Fast sync completed in ${elapsed}ms`
