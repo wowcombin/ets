@@ -130,6 +130,60 @@ export default function DashboardPage() {
     }
   }
 
+  // Полная очистка и синхронизация
+  const clearAndSync = async () => {
+    if (!confirm('Это удалит ВСЕ данные и загрузит их заново. Продолжить?')) {
+      return
+    }
+    
+    setSyncing(true)
+    setError(null)
+    
+    try {
+      // Сначала очищаем базу
+      console.log('Clearing database...')
+      const clearResponse = await fetch('/api/clear-all')
+      const clearResult = await clearResponse.json()
+      
+      if (!clearResult.success) {
+        throw new Error(clearResult.error || 'Failed to clear database')
+      }
+      
+      console.log('Database cleared:', clearResult)
+      
+      // Затем синхронизируем
+      console.log('Starting sync...')
+      const syncResponse = await fetch('/api/sync-complete')
+      const syncResult = await syncResponse.json()
+      
+      if (!syncResult.success) {
+        throw new Error(syncResult.error || 'Sync failed')
+      }
+      
+      console.log('Sync completed:', syncResult)
+      
+      // Рассчитываем зарплаты
+      console.log('Calculating salaries...')
+      const salaryResponse = await fetch('/api/calculate-salaries')
+      const salaryResult = await salaryResponse.json()
+      
+      console.log('Salaries calculated:', salaryResult)
+      
+      // Перезагружаем данные
+      await loadData()
+      
+      setLastSync(new Date())
+      alert('Полная синхронизация завершена успешно!')
+      
+    } catch (error: any) {
+      console.error('Clear and sync error:', error)
+      setError(error.message)
+      alert(`Ошибка: ${error.message}`)
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   useEffect(() => {
     loadData()
     // Автообновление каждые 30 секунд
@@ -211,6 +265,13 @@ export default function DashboardPage() {
             disabled={loading}
           >
             Обновить
+          </Button>
+          <Button 
+            onClick={clearAndSync}
+            variant="destructive"
+            disabled={syncing || loading}
+          >
+            Полная очистка и синхронизация
           </Button>
         </div>
       </div>
