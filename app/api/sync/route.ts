@@ -44,9 +44,12 @@ function parseNumberValue(value: any): number {
     return value
   }
   
-  // Обрабатываем европейский формат: 11,61 -> 11.61
-  // Удаляем пробелы и заменяем запятую на точку
-  str = str.replace(/\s/g, '').replace(',', '.')
+  // Обрабатываем европейский формат с пробелами: "5 311,00" -> "5311.00"
+  // Сначала удаляем все пробелы
+  str = str.replace(/\s/g, '')
+  
+  // Заменяем запятую на точку для десятичной части
+  str = str.replace(',', '.')
   
   // Удаляем все символы кроме цифр, точки и минуса
   str = str.replace(/[^0-9.-]/g, '')
@@ -178,32 +181,37 @@ export async function GET() {
       results.stats.employeesProcessed++
     }
     
-    // Добавляем @sobroffice если его нет
-    if (!employeeMap.has('@sobroffice')) {
-      let sobroffice = existingEmployees?.find(e => e.username === '@sobroffice')
-      
-      if (!sobroffice) {
-        const { data: newEmp } = await supabase
-          .from('employees')
-          .insert([{
-            username: '@sobroffice',
-            folder_id: 'test',
-            is_manager: true,
-            is_active: true,
-            profit_percentage: 10.00,
-            manager_type: 'test_manager'
-          }])
-          .select()
-          .single()
+    // Добавляем всех менеджеров если их нет
+    const managersToAdd = ['@sobroffice', '@vladsohr', '@n1mbo', '@i88jU']
+    
+    for (const managerUsername of managersToAdd) {
+      if (!employeeMap.has(managerUsername)) {
+        let manager = existingEmployees?.find(e => e.username === managerUsername)
         
-        if (newEmp) {
-          sobroffice = newEmp
+        if (!manager) {
+          const managerData = MANAGERS[managerUsername as keyof typeof MANAGERS]
+          const { data: newEmp } = await supabase
+            .from('employees')
+            .insert([{
+              username: managerUsername,
+              folder_id: managerUsername === '@sobroffice' ? 'test' : 'manager',
+              is_manager: true,
+              is_active: true,
+              profit_percentage: managerData?.percentage || 10.00,
+              manager_type: managerData?.isTest ? 'test_manager' : 'profit_manager'
+            }])
+            .select()
+            .single()
+          
+          if (newEmp) {
+            manager = newEmp
+          }
         }
-      }
-      
-      if (sobroffice) {
-        employeeMap.set('@sobroffice', sobroffice.id)
-        results.stats.employeesProcessed++
+        
+        if (manager) {
+          employeeMap.set(managerUsername, manager.id)
+          results.stats.employeesProcessed++
+        }
       }
     }
     
@@ -236,7 +244,8 @@ export async function GET() {
         }
         
         // ВАЖНО: Читаем ТОЛЬКО лист с названием текущего месяца
-        const range = `${monthName}!A2:D1000`
+        // Увеличиваем диапазон до 3000 строк
+        const range = `${monthName}!A2:D3000`
         
         try {
           const response = await sheets.spreadsheets.values.get({
@@ -308,7 +317,7 @@ export async function GET() {
       const sobrofficeId = employeeMap.get('@sobroffice')
       
       if (sobrofficeId) {
-        const testRange = `${monthName}!A2:D1000`
+        const testRange = `${monthName}!A2:D3000`
         const testResponse = await sheets.spreadsheets.values.get({
           spreadsheetId: TEST_SPREADSHEET_ID,
           range: testRange,
@@ -548,22 +557,35 @@ export async function GET() {
           let leaderBonus = 0
           
           if (employee.username === '@sobroffice') {
-            // Тест менеджер: 10% от всех работников + 10% от своих тестов
-            baseSalary = results.stats.totalNet * 0.1 + empGross * 0.1
-          } else if (employee.is_manager) {
-            // Менеджеры получают процент от общего нетто
-            const percentage = (employee.profit_percentage || 10) / 100
-            baseSalary = results.stats.totalNet * percentage
-          } else if (empGross > 0) {
-            // Обычные работники: 10% от своего брутто
-            baseSalary = empGross * 0.1
+            // Тест менеджер: 10% от всего брутто работников + 10% от своих тестов
+            const workersGross = transactions.filter((t: any) => {
+              const emp = employees?.find(e => e.id === t.employee_id)
+              return emp && !emp.is_manager
+            }).reduce((sum: number, t: any) => sum + (t.gross_profit_usd || 0), 0)
             
-            // Бонус за результат > $200
+            baseSalary = workersGross * 0.1 + empGross * 0.1
+          } else if (employee.is_manager) {
+            // Менеджеры получают процент от общего нетто (если расходы < 20%) или от брутто минус расходы
+            const percentage = (employee.profit_percentage || 10) / 100
+            
+            // Если расходы больше 20%, менеджеры получают процент от (брутто - расходы)
+            if (results.stats.totalExpenses > results.stats.totalGross * 0.2) {
+              baseSalary = (results.stats.totalGross - results.stats.totalExpenses) * percentage
+            } else {
+              baseSalary = results.stats.totalGross * percentage
+            }
+          } else if (empGross > 0) {
+            // Обычные работники
             if (empGross > 200) {
+              // Если брутто > 200: получают 10% от всего + бонус 200
+              baseSalary = empGross * 0.1
               bonus = 200
+            } else {
+              // Если брутто <= 200: получают только 10% от брутто
+              baseSalary = empGross * 0.1
             }
             
-            // Бонус лидеру месяца
+            // Бонус лидеру месяца (самая большая транзакция)
             if (maxTransaction && maxTransaction.employee_id === employee.id) {
               leaderBonus = maxGrossProfit * 0.1
             }
@@ -571,7 +593,8 @@ export async function GET() {
           
           const totalSalary = baseSalary + bonus + leaderBonus
           
-          if (totalSalary > 0) {
+          // Сохраняем зарплату для всех, у кого она больше 0 (включая менеджеров)
+          if (totalSalary > 0 || employee.is_manager) {
             salariesToInsert.push({
               employee_id: employee.id,
               month: monthCode,
