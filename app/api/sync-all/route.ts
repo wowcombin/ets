@@ -1,3 +1,5 @@
+'use client'
+
 import { NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase/client'
 import { google } from 'googleapis'
@@ -35,11 +37,16 @@ function getCurrentMonthCode(): string {
 
 function parseNumberValue(value: any): number {
   if (!value) return 0
-  let str = String(value).trim()
   if (typeof value === 'number') return value
+  
+  let str = String(value).trim()
+  // Удаляем все пробелы
   str = str.replace(/\s/g, '')
+  // Заменяем запятую на точку для десятичных
   str = str.replace(',', '.')
+  // Удаляем все символы кроме цифр, точки и минуса
   str = str.replace(/[^0-9.-]/g, '')
+  
   const parsed = parseFloat(str)
   return isNaN(parsed) ? 0 : parsed
 }
@@ -87,12 +94,12 @@ export async function GET() {
     const sheets = google.sheets({ version: 'v4', auth })
     const supabase = getServiceSupabase()
     
-    // Очищаем старые данные
+    // Очищаем старые данные за текущий месяц
     await supabase.from('transactions').delete().eq('month', monthCode)
     await supabase.from('expenses').delete().eq('month', monthCode)
     await supabase.from('salaries').delete().eq('month', monthCode)
     
-    // КРИТИЧНО: Получаем существующих сотрудников
+    // Получаем существующих сотрудников
     const { data: existingEmployees } = await supabase
       .from('employees')
       .select('*')
@@ -126,7 +133,7 @@ export async function GET() {
       }
     }
     
-    // Получаем папки
+    // Получаем папки сотрудников
     const foldersResponse = await drive.files.list({
       q: `'${JUNIOR_FOLDER_ID}' in parents and mimeType='application/vnd.google-apps.folder' and name contains '@'`,
       fields: 'files(id, name)',
@@ -134,8 +141,9 @@ export async function GET() {
     })
     
     const folders = foldersResponse.data.files || []
+    console.log(`Found ${folders.length} employee folders`)
     
-    // КРИТИЧНО: Создаем ВСЕХ сотрудников СНАЧАЛА
+    // Создаем ВСЕХ сотрудников СНАЧАЛА
     for (const folder of folders) {
       if (!folder.id || !folder.name) continue
       
@@ -170,6 +178,7 @@ export async function GET() {
     
     // Теперь читаем транзакции
     const allTransactions = []
+    let calculatedTotalGross = 0
     
     for (const folder of folders) {
       if (!folder.id || !folder.name) continue
@@ -200,25 +209,32 @@ export async function GET() {
           })
           
           const rows = response.data.values || []
+          console.log(`Processing ${rows.length} rows for ${cleanUsername}`)
           
           for (const row of rows) {
             if (row[0]) {
-              const grossProfit = (parseNumberValue(row[2]) - parseNumberValue(row[1])) * GBP_TO_USD_RATE
+              const depositGbp = parseNumberValue(row[1])
+              const withdrawalGbp = parseNumberValue(row[2])
+              const cardNumber = extractCardNumber(row[3])
+              
+              const depositUsd = depositGbp * GBP_TO_USD_RATE
+              const withdrawalUsd = withdrawalGbp * GBP_TO_USD_RATE
+              const grossProfit = withdrawalUsd - depositUsd
               
               allTransactions.push({
                 employee_id: employeeId,
                 month: monthCode,
                 casino_name: String(row[0]).trim(),
-                deposit_gbp: parseNumberValue(row[1]),
-                withdrawal_gbp: parseNumberValue(row[2]),
-                deposit_usd: parseNumberValue(row[1]) * GBP_TO_USD_RATE,
-                withdrawal_usd: parseNumberValue(row[2]) * GBP_TO_USD_RATE,
-                card_number: extractCardNumber(row[3]),
+                deposit_gbp: depositGbp,
+                withdrawal_gbp: withdrawalGbp,
+                deposit_usd: depositUsd,
+                withdrawal_usd: withdrawalUsd,
+                card_number: cardNumber,
                 gross_profit_usd: grossProfit,
                 net_profit_usd: grossProfit,
               })
               
-              results.stats.totalGross += grossProfit
+              calculatedTotalGross += grossProfit
             }
           }
         } catch (e) {
@@ -229,7 +245,7 @@ export async function GET() {
       }
     }
     
-    // Читаем тестовые транзакции
+    // Читаем тестовые транзакции @sobroffice
     const sobrofficeId = employeeMap.get('@sobroffice')
     if (sobrofficeId) {
       try {
@@ -240,31 +256,41 @@ export async function GET() {
         })
         
         const rows = testResponse.data.values || []
+        console.log(`Processing ${rows.length} test transactions for @sobroffice`)
         
         for (const row of rows) {
           if (row[0]) {
-            const grossProfit = (parseNumberValue(row[2]) - parseNumberValue(row[1])) * GBP_TO_USD_RATE
+            const depositGbp = parseNumberValue(row[1])
+            const withdrawalGbp = parseNumberValue(row[2])
+            const cardNumber = extractCardNumber(row[3])
+            
+            const depositUsd = depositGbp * GBP_TO_USD_RATE
+            const withdrawalUsd = withdrawalGbp * GBP_TO_USD_RATE
+            const grossProfit = withdrawalUsd - depositUsd
             
             allTransactions.push({
               employee_id: sobrofficeId,
               month: monthCode,
               casino_name: String(row[0]).trim(),
-              deposit_gbp: parseNumberValue(row[1]),
-              withdrawal_gbp: parseNumberValue(row[2]),
-              deposit_usd: parseNumberValue(row[1]) * GBP_TO_USD_RATE,
-              withdrawal_usd: parseNumberValue(row[2]) * GBP_TO_USD_RATE,
-              card_number: extractCardNumber(row[3]),
+              deposit_gbp: depositGbp,
+              withdrawal_gbp: withdrawalGbp,
+              deposit_usd: depositUsd,
+              withdrawal_usd: withdrawalUsd,
+              card_number: cardNumber,
               gross_profit_usd: grossProfit,
               net_profit_usd: grossProfit,
             })
             
-            results.stats.totalGross += grossProfit
+            calculatedTotalGross += grossProfit
           }
         }
       } catch (e) {
         console.log('No test sheet')
       }
     }
+    
+    console.log(`Total transactions to insert: ${allTransactions.length}`)
+    console.log(`Calculated total gross: $${calculatedTotalGross.toFixed(2)}`)
     
     // Сохраняем транзакции
     if (allTransactions.length > 0) {
@@ -274,6 +300,7 @@ export async function GET() {
       
       if (!error) {
         results.stats.transactionsCreated = allTransactions.length
+        results.stats.totalGross = calculatedTotalGross
       } else {
         results.errors.push(`Transaction error: ${error.message}`)
       }
@@ -291,7 +318,10 @@ export async function GET() {
       let totalExpenses = 0
       
       rows.forEach(row => {
-        if (row[0]) totalExpenses += parseNumberValue(row[0])
+        if (row[0]) {
+          const amount = parseNumberValue(row[0])
+          totalExpenses += amount
+        }
       })
       
       if (totalExpenses > 0) {
@@ -302,7 +332,7 @@ export async function GET() {
         results.stats.totalExpenses = totalExpenses
       }
     } catch (e) {
-      console.log('No expenses')
+      console.log('No expenses found')
     }
     
     results.stats.totalNet = results.stats.totalGross - results.stats.totalExpenses
@@ -337,8 +367,18 @@ export async function GET() {
         results.stats.cardsProcessed = cards.length
       }
     } catch (e) {
-      console.log('Cards error')
+      console.log('Cards error:', e)
     }
+    
+    // Проверяем финальные данные в БД
+    const { data: finalTransactions } = await supabase
+      .from('transactions')
+      .select('gross_profit_usd')
+      .eq('month', monthCode)
+    
+    const dbTotalGross = finalTransactions?.reduce((sum, t) => sum + (t.gross_profit_usd || 0), 0) || 0
+    
+    console.log(`Final DB total gross: $${dbTotalGross.toFixed(2)}`)
     
     const { count: finalTransCount } = await supabase
       .from('transactions')
@@ -353,6 +393,7 @@ export async function GET() {
       success: true,
       stats: {
         ...results.stats,
+        totalGross: dbTotalGross, // Используем актуальное значение из БД
         timeElapsed: `${Date.now() - startTime}ms`,
         transactionsInDb: finalTransCount || 0,
         totalEmployeesInDb: finalEmpCount || 0
