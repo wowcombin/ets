@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase/client'
 
 export const dynamic = 'force-dynamic'
-export const revalidate = 0 // Отключаем кэширование
+export const revalidate = 0
+export const runtime = 'nodejs'
 
 export async function GET() {
   try {
@@ -11,7 +12,7 @@ export async function GET() {
     
     console.log(`Loading dashboard data for ${currentMonth}...`)
     
-    // Получаем сотрудников (только активных)
+    // Получаем ВСЕХ сотрудников
     const { data: employees, error: empError } = await supabase
       .from('employees')
       .select('*')
@@ -26,12 +27,11 @@ export async function GET() {
     const activeEmployees = employees?.filter(e => !e.username.includes('УВОЛЕН') && e.is_active !== false) || []
     const firedEmployees = employees?.filter(e => e.username.includes('УВОЛЕН') || e.is_active === false) || []
     
-    // Получаем транзакции за текущий месяц с данными сотрудников
+    // Получаем ВСЕ транзакции за текущий месяц
     const { data: transactions, error: transError } = await supabase
       .from('transactions')
       .select('*, employee:employees(username, is_manager)')
       .eq('month', currentMonth)
-      .order('created_at', { ascending: false })
     
     if (transError) {
       console.error('Error loading transactions:', transError)
@@ -51,7 +51,7 @@ export async function GET() {
       throw expError
     }
     
-    // Получаем зарплаты с данными сотрудников
+    // Получаем зарплаты
     const { data: salaries, error: salError } = await supabase
       .from('salaries')
       .select('*, employee:employees(username, is_manager)')
@@ -76,11 +76,37 @@ export async function GET() {
       throw cardError
     }
     
-    // Рассчитываем статистику из реальных данных
-    const totalGross = transactions?.reduce((sum, t) => sum + (t.gross_profit_usd || 0), 0) || 0
-    const totalNet = transactions?.reduce((sum, t) => sum + (t.net_profit_usd || 0), 0) || 0
-    const totalExpenses = expenses?.reduce((sum, e) => sum + (e.amount_usd || 0), 0) || 0
-    const usedCardCount = cards?.filter(c => c.status === 'used').length || 0
+    // ВАЖНО: Рассчитываем статистику из ВСЕХ транзакций
+    let totalGross = 0
+    let totalNet = 0
+    let totalExpenses = 0
+    
+    // Считаем брутто из транзакций
+    if (transactions && transactions.length > 0) {
+      totalGross = transactions.reduce((sum, t) => {
+        return sum + (parseFloat(t.gross_profit_usd) || 0)
+      }, 0)
+    }
+    
+    // Считаем расходы
+    if (expenses && expenses.length > 0) {
+      totalExpenses = expenses.reduce((sum, e) => {
+        return sum + (parseFloat(e.amount_usd) || 0)
+      }, 0)
+    }
+    
+    totalNet = totalGross - totalExpenses
+    
+    // Считаем использованные карты из транзакций
+    const usedCardNumbers = new Set<string>()
+    transactions?.forEach(t => {
+      if (t.card_number) {
+        usedCardNumbers.add(t.card_number)
+      }
+    })
+    const usedCardCount = usedCardNumbers.size
+    
+    console.log(`Stats: Gross=$${totalGross.toFixed(2)}, Net=$${totalNet.toFixed(2)}, Expenses=$${totalExpenses.toFixed(2)}`)
     
     // Группируем статистику по сотрудникам
     const employeeStats = new Map()
@@ -100,17 +126,23 @@ export async function GET() {
       }
       
       const stats = employeeStats.get(t.employee_id)
-      stats.totalDeposits += t.deposit_usd || 0
-      stats.totalWithdrawals += t.withdrawal_usd || 0
-      stats.totalGross += t.gross_profit_usd || 0
+      stats.totalDeposits += parseFloat(t.deposit_usd) || 0
+      stats.totalWithdrawals += parseFloat(t.withdrawal_usd) || 0
+      stats.totalGross += parseFloat(t.gross_profit_usd) || 0
       stats.transactionCount++
-      stats.casinos.add(t.casino_name)
+      if (t.casino_name) {
+        stats.casinos.add(t.casino_name)
+      }
     })
     
     // Конвертируем в массив для отправки
     const employeeStatsArray = Array.from(employeeStats.entries()).map(([id, stats]) => ({
       id,
-      ...stats,
+      username: stats.username,
+      totalDeposits: Math.round(stats.totalDeposits * 100) / 100,
+      totalWithdrawals: Math.round(stats.totalWithdrawals * 100) / 100,
+      totalGross: Math.round(stats.totalGross * 100) / 100,
+      transactionCount: stats.transactionCount,
       casinos: Array.from(stats.casinos)
     }))
     
@@ -131,9 +163,9 @@ export async function GET() {
       }
       
       const stats = casinoStats.get(t.casino_name)
-      stats.totalDeposits += t.deposit_usd || 0
-      stats.totalWithdrawals += t.withdrawal_usd || 0
-      stats.totalGross += t.gross_profit_usd || 0
+      stats.totalDeposits += parseFloat(t.deposit_usd) || 0
+      stats.totalWithdrawals += parseFloat(t.withdrawal_usd) || 0
+      stats.totalGross += parseFloat(t.gross_profit_usd) || 0
       stats.transactionCount++
       if (t.employee?.username) {
         stats.employees.add(t.employee.username)
@@ -143,9 +175,17 @@ export async function GET() {
     // Конвертируем в массив
     const casinoStatsArray = Array.from(casinoStats.entries()).map(([name, stats]) => ({
       name,
-      ...stats,
+      totalDeposits: Math.round(stats.totalDeposits * 100) / 100,
+      totalWithdrawals: Math.round(stats.totalWithdrawals * 100) / 100,
+      totalGross: Math.round(stats.totalGross * 100) / 100,
+      transactionCount: stats.transactionCount,
       employees: Array.from(stats.employees)
     }))
+    
+    // Округляем финальные значения
+    totalGross = Math.round(totalGross * 100) / 100
+    totalNet = Math.round(totalNet * 100) / 100
+    totalExpenses = Math.round(totalExpenses * 100) / 100
     
     const responseData = {
       success: true,
@@ -178,7 +218,8 @@ export async function GET() {
       transactions: transactions?.length || 0,
       totalGross,
       totalNet,
-      salaries: salaries?.length || 0
+      salaries: salaries?.length || 0,
+      usedCards: usedCardCount
     })
     
     return NextResponse.json(responseData)
