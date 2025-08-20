@@ -23,9 +23,11 @@ export async function GET() {
       throw empError
     }
     
-    // Разделяем на активных и уволенных
-    const activeEmployees = employees?.filter(e => !e.username.includes('УВОЛЕН') && e.is_active !== false) || []
-    const firedEmployees = employees?.filter(e => e.username.includes('УВОЛЕН') || e.is_active === false) || []
+    // Правильно разделяем на активных и уволенных
+    const activeEmployees = employees?.filter(e => e.is_active && !e.username.includes('УВОЛЕН')) || []
+    const firedEmployees = employees?.filter(e => !e.is_active || e.username.includes('УВОЛЕН')) || []
+    
+    console.log(`Total employees: ${employees?.length}, Active: ${activeEmployees.length}, Fired: ${firedEmployees.length}`)
     
     // ВАЖНО: Получаем ВСЕ транзакции используя пагинацию
     console.log('Fetching ALL transactions with pagination...')
@@ -40,7 +42,7 @@ export async function GET() {
         .select('*, employee:employees(username, is_manager)')
         .eq('month', currentMonth)
         .range(from, from + limit - 1)
-        .order('created_at', { ascending: true })
+        .order('created_at', { ascending: false }) // Изменено на descending для последних первыми
       
       if (batchError) {
         console.error(`Error fetching batch from ${from}:`, batchError)
@@ -165,6 +167,9 @@ export async function GET() {
       casinos: Array.from(stats.casinos)
     }))
     
+    // Сортируем по брутто
+    employeeStatsArray.sort((a, b) => b.totalGross - a.totalGross)
+    
     // Группируем статистику по казино
     const casinoStats = new Map()
     
@@ -201,6 +206,9 @@ export async function GET() {
       employees: Array.from(stats.employees)
     }))
     
+    // Сортируем по брутто
+    casinoStatsArray.sort((a, b) => b.totalGross - a.totalGross)
+    
     // Округляем финальные значения
     totalGross = Math.round(totalGross * 100) / 100
     totalNet = Math.round(totalNet * 100) / 100
@@ -211,7 +219,7 @@ export async function GET() {
       data: {
         employees: activeEmployees,
         firedEmployees,
-        transactions: allTransactions, // Возвращаем ВСЕ транзакции
+        transactions: allTransactions, // Возвращаем ВСЕ транзакции, отсортированные по дате
         expenses: expenses || [],
         salaries: salaries || [],
         cards: cards || [],
