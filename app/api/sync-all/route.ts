@@ -162,6 +162,7 @@ export async function GET() {
       const isFired = folder.name.includes('УВОЛЕН')
       
       if (!employeeMap.has(cleanUsername)) {
+        // Создаем нового сотрудника
         const { data: newEmp } = await supabase
           .from('employees')
           .insert([{
@@ -178,6 +179,17 @@ export async function GET() {
         if (newEmp) {
           employeeMap.set(cleanUsername, newEmp.id)
         }
+      } else {
+        // Обновляем статус существующего сотрудника
+        await supabase
+          .from('employees')
+          .update({ 
+            is_active: !isFired,
+            updated_at: new Date().toISOString()
+          })
+          .eq('username', cleanUsername)
+        
+        console.log(`Updated ${cleanUsername} status: active=${!isFired}`)
       }
       
       results.employeesList.push(cleanUsername)
