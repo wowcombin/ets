@@ -15,7 +15,9 @@ import {
   Activity,
   PieChart,
   UserCheck,
-  UserX
+  UserX,
+  Trophy,
+  TrendingDown
 } from 'lucide-react'
 
 interface Employee {
@@ -91,6 +93,7 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
+  const [calculating, setCalculating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showAllTransactions, setShowAllTransactions] = useState(false)
   const [showAllSalaries, setShowAllSalaries] = useState(false)
@@ -146,18 +149,21 @@ export default function DashboardPage() {
   const calculateSalaries = async () => {
     if (!confirm('Пересчитать зарплаты за текущий месяц?')) return
     
+    setCalculating(true)
     try {
       const response = await fetch('/api/calculate-salaries')
       const result = await response.json()
       
       if (result.success) {
         await loadData()
-        alert(`✅ Зарплаты рассчитаны!\n\nРассчитано ${result.stats.salariesCreated} зарплат`)
+        alert(`✅ Зарплаты рассчитаны!\n\nРассчитано ${result.stats.salariesCreated} зарплат\nЛидер месяца: ${result.stats.leaderEmployee || 'Не определен'}`)
       } else {
         alert(`Ошибка: ${result.error}`)
       }
     } catch (error) {
       alert('Ошибка при расчете зарплат')
+    } finally {
+      setCalculating(false)
     }
   }
 
@@ -181,7 +187,13 @@ export default function DashboardPage() {
   // Разделяем сотрудников на группы
   const managers = data?.salaries?.filter(s => s.employee?.is_manager) || []
   const workers = data?.salaries?.filter(s => !s.employee?.is_manager) || []
-  const activeEmployees = data?.employees?.filter(e => e.is_active) || []
+  
+  // Правильно разделяем активных и уволенных сотрудников
+  const activeEmployees = data?.employees?.filter(e => e.is_active && !e.username.includes('УВОЛЕН')) || []
+  const firedEmployees = data?.employees?.filter(e => !e.is_active || e.username.includes('УВОЛЕН')) || []
+  
+  // Находим лидера месяца
+  const leaderSalary = data?.salaries?.find(s => s.leader_bonus > 0)
   
   // Топ сотрудники по заработку
   const topEarners = [...(data?.salaries || [])]
@@ -201,6 +213,12 @@ export default function DashboardPage() {
               <p className="text-sm text-gray-400 mt-1 flex items-center">
                 <Calendar className="w-4 h-4 mr-1" />
                 {currentMonth} • {data?.stats?.totalEmployeeCount || 0} сотрудников в системе
+                {leaderSalary && (
+                  <span className="ml-3 text-yellow-400 flex items-center">
+                    <Trophy className="w-4 h-4 mr-1" />
+                    Лидер: {leaderSalary.employee?.username}
+                  </span>
+                )}
               </p>
             </div>
             
@@ -216,9 +234,10 @@ export default function DashboardPage() {
               
               <button
                 onClick={calculateSalaries}
+                disabled={calculating}
                 className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center gap-2 transition-colors"
               >
-                <DollarSign className="w-4 h-4" />
+                <DollarSign className={`w-4 h-4 ${calculating ? 'animate-spin' : ''}`} />
                 Рассчитать зарплаты
               </button>
               
@@ -308,7 +327,7 @@ export default function DashboardPage() {
               <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-gray-400">Расходы</span>
-                  <AlertCircle className="w-5 h-5 text-red-400" />
+                  <TrendingDown className="w-5 h-5 text-red-400" />
                 </div>
                 <div className="text-3xl font-bold text-red-400">
                   ${(data?.stats?.totalExpenses || 0).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -340,19 +359,32 @@ export default function DashboardPage() {
               <div className="bg-gray-800 border border-gray-700 rounded-lg">
                 <div className="p-6 border-b border-gray-700">
                   <h2 className="text-xl font-bold">Топ 5 по заработку</h2>
+                  {leaderSalary && (
+                    <p className="text-sm text-yellow-400 mt-1 flex items-center">
+                      <Trophy className="w-4 h-4 mr-1" />
+                      Лидер месяца: {leaderSalary.employee?.username} (максимальная транзакция)
+                    </p>
+                  )}
                 </div>
                 <div className="p-6">
                   <div className="space-y-4">
                     {topEarners.map((salary, index) => (
-                      <div key={salary.id} className="flex items-center justify-between p-4 bg-gray-700/30 rounded-lg">
+                      <div key={salary.id} className={`flex items-center justify-between p-4 rounded-lg ${
+                        salary.leader_bonus > 0 ? 'bg-yellow-900/20 border border-yellow-700' : 'bg-gray-700/30'
+                      }`}>
                         <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center font-bold">
-                            {index + 1}
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
+                            salary.leader_bonus > 0 ? 'bg-yellow-600' : 'bg-blue-600'
+                          }`}>
+                            {salary.leader_bonus > 0 ? '🏆' : index + 1}
                           </div>
                           <div>
                             <div className="font-medium">{salary.employee?.username}</div>
                             <div className="text-sm text-gray-400">
                               {salary.employee?.is_manager ? 'Менеджер' : 'Сотрудник'}
+                              {salary.leader_bonus > 0 && (
+                                <span className="ml-2 text-yellow-400">• Лидер месяца</span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -361,7 +393,7 @@ export default function DashboardPage() {
                             ${salary.total_salary.toFixed(2)}
                           </div>
                           {salary.leader_bonus > 0 && (
-                            <div className="text-xs text-yellow-400">+Лидер бонус</div>
+                            <div className="text-xs text-yellow-400">+${salary.leader_bonus.toFixed(2)} бонус лидера</div>
                           )}
                         </div>
                       </div>
@@ -430,15 +462,15 @@ export default function DashboardPage() {
                   
                   {/* Workers Section */}
                   {(() => {
-                    // Разделяем активных и уволенных работников
+                    // Разделяем активных и уволенных работников на основе данных о сотрудниках
                     const activeWorkers = workers.filter(s => {
                       const emp = data?.employees?.find(e => e.id === s.employee_id)
-                      return emp && emp.is_active
+                      return emp && emp.is_active && !emp.username.includes('УВОЛЕН')
                     })
                     
                     const firedWorkers = workers.filter(s => {
                       const emp = data?.employees?.find(e => e.id === s.employee_id)
-                      return emp && !emp.is_active
+                      return emp && (!emp.is_active || emp.username.includes('УВОЛЕН'))
                     })
                     
                     return (
@@ -446,13 +478,16 @@ export default function DashboardPage() {
                         {/* Активные сотрудники */}
                         {activeWorkers.length > 0 && (
                           <div className="mb-6">
-                            <h3 className="text-lg font-semibold mb-3 text-green-400">Сотрудники</h3>
+                            <h3 className="text-lg font-semibold mb-3 text-green-400 flex items-center gap-2">
+                              <UserCheck className="w-5 h-5" />
+                              Активные сотрудники ({activeWorkers.length})
+                            </h3>
                             <div className="overflow-x-auto">
                               <table className="w-full">
                                 <thead>
                                   <tr className="border-b border-gray-700">
                                     <th className="text-left py-3 px-4 text-gray-400">Сотрудник</th>
-                                    <th className="text-right py-3 px-4 text-gray-400">База</th>
+                                    <th className="text-right py-3 px-4 text-gray-400">База (10%)</th>
                                     <th className="text-right py-3 px-4 text-gray-400">Бонус</th>
                                     <th className="text-right py-3 px-4 text-gray-400">Лидер</th>
                                     <th className="text-right py-3 px-4 text-gray-400">Итого</th>
@@ -461,16 +496,31 @@ export default function DashboardPage() {
                                 </thead>
                                 <tbody>
                                   {(showAllSalaries ? activeWorkers : activeWorkers.slice(0, 10)).map((salary) => (
-                                    <tr key={salary.id} className="border-b border-gray-700/50 hover:bg-gray-700/30">
-                                      <td className="py-3 px-4 font-medium">{salary.employee?.username}</td>
+                                    <tr key={salary.id} className={`border-b border-gray-700/50 hover:bg-gray-700/30 ${
+                                      salary.leader_bonus > 0 ? 'bg-yellow-900/10' : ''
+                                    }`}>
+                                      <td className="py-3 px-4 font-medium">
+                                        {salary.employee?.username}
+                                        {salary.leader_bonus > 0 && (
+                                          <span className="ml-2 text-yellow-400">🏆</span>
+                                        )}
+                                      </td>
                                       <td className="py-3 px-4 text-right">${salary.base_salary.toFixed(2)}</td>
                                       <td className="py-3 px-4 text-right">
-                                        {salary.bonus > 0 ? `$${salary.bonus.toFixed(2)}` : '-'}
+                                        {salary.bonus > 0 ? (
+                                          <span className="text-green-400">${salary.bonus.toFixed(2)}</span>
+                                        ) : (
+                                          <span className="text-gray-500">-</span>
+                                        )}
                                       </td>
                                       <td className="py-3 px-4 text-right">
                                         {salary.leader_bonus > 0 ? (
-                                          <span className="text-yellow-400">${salary.leader_bonus.toFixed(2)}</span>
-                                        ) : '-'}
+                                          <span className="text-yellow-400 font-bold">
+                                            ${salary.leader_bonus.toFixed(2)}
+                                          </span>
+                                        ) : (
+                                          <span className="text-gray-500">-</span>
+                                        )}
                                       </td>
                                       <td className="py-3 px-4 text-right font-bold text-green-400">
                                         ${salary.total_salary.toFixed(2)}
@@ -493,9 +543,12 @@ export default function DashboardPage() {
                         {/* Уволенные сотрудники */}
                         {firedWorkers.length > 0 && (
                           <div>
-                            <h3 className="text-lg font-semibold mb-3 text-red-400">Уволенные</h3>
+                            <h3 className="text-lg font-semibold mb-3 text-red-400 flex items-center gap-2">
+                              <UserX className="w-5 h-5" />
+                              Уволенные сотрудники ({firedWorkers.length})
+                            </h3>
                             <div className="overflow-x-auto">
-                              <table className="w-full">
+                              <table className="w-full opacity-75">
                                 <thead>
                                   <tr className="border-b border-gray-700">
                                     <th className="text-left py-3 px-4 text-gray-400">Сотрудник</th>
@@ -508,7 +561,7 @@ export default function DashboardPage() {
                                 </thead>
                                 <tbody>
                                   {firedWorkers.map((salary) => (
-                                    <tr key={salary.id} className="border-b border-gray-700/50 hover:bg-gray-700/30 opacity-60">
+                                    <tr key={salary.id} className="border-b border-gray-700/50 hover:bg-gray-700/30">
                                       <td className="py-3 px-4 font-medium">
                                         <span className="text-red-400">{salary.employee?.username}</span>
                                         <span className="ml-2 text-xs text-red-500">(Уволен)</span>
@@ -596,6 +649,160 @@ export default function DashboardPage() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Employees Tab */}
+        {activeTab === 'employees' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-400">Всего сотрудников</span>
+                  <Users className="w-5 h-5 text-blue-400" />
+                </div>
+                <div className="text-3xl font-bold">{data?.stats?.totalEmployeeCount || 0}</div>
+              </div>
+              
+              <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-400">Активные</span>
+                  <UserCheck className="w-5 h-5 text-green-400" />
+                </div>
+                <div className="text-3xl font-bold text-green-400">{activeEmployees.length}</div>
+              </div>
+              
+              <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-400">Уволенные</span>
+                  <UserX className="w-5 h-5 text-red-400" />
+                </div>
+                <div className="text-3xl font-bold text-red-400">{firedEmployees.length}</div>
+              </div>
+            </div>
+            
+            {/* Employee stats table */}
+            {data?.employeeStats && (
+              <div className="bg-gray-800 border border-gray-700 rounded-lg">
+                <div className="p-6 border-b border-gray-700">
+                  <h2 className="text-xl font-bold">Статистика по сотрудникам</h2>
+                </div>
+                <div className="p-6">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-gray-700">
+                          <th className="text-left py-3 px-4 text-gray-400">Сотрудник</th>
+                          <th className="text-right py-3 px-4 text-gray-400">Транзакций</th>
+                          <th className="text-right py-3 px-4 text-gray-400">Депозиты</th>
+                          <th className="text-right py-3 px-4 text-gray-400">Выводы</th>
+                          <th className="text-right py-3 px-4 text-gray-400">Брутто</th>
+                          <th className="text-right py-3 px-4 text-gray-400">Казино</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.employeeStats.map((stat: any) => (
+                          <tr key={stat.id} className="border-b border-gray-700/50 hover:bg-gray-700/30">
+                            <td className="py-3 px-4 font-medium">{stat.username}</td>
+                            <td className="py-3 px-4 text-right">{stat.transactionCount}</td>
+                            <td className="py-3 px-4 text-right">${stat.totalDeposits.toFixed(2)}</td>
+                            <td className="py-3 px-4 text-right">${stat.totalWithdrawals.toFixed(2)}</td>
+                            <td className="py-3 px-4 text-right font-bold text-green-400">
+                              ${stat.totalGross.toFixed(2)}
+                            </td>
+                            <td className="py-3 px-4 text-right">{stat.casinos?.length || 0}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Casinos Tab */}
+        {activeTab === 'casinos' && data?.casinoStats && (
+          <div className="space-y-6">
+            <div className="bg-gray-800 border border-gray-700 rounded-lg">
+              <div className="p-6 border-b border-gray-700">
+                <h2 className="text-xl font-bold">Статистика по казино</h2>
+              </div>
+              <div className="p-6">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-700">
+                        <th className="text-left py-3 px-4 text-gray-400">Казино</th>
+                        <th className="text-right py-3 px-4 text-gray-400">Транзакций</th>
+                        <th className="text-right py-3 px-4 text-gray-400">Депозиты</th>
+                        <th className="text-right py-3 px-4 text-gray-400">Выводы</th>
+                        <th className="text-right py-3 px-4 text-gray-400">Брутто</th>
+                        <th className="text-right py-3 px-4 text-gray-400">Сотрудники</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.casinoStats.map((casino: any) => (
+                        <tr key={casino.name} className="border-b border-gray-700/50 hover:bg-gray-700/30">
+                          <td className="py-3 px-4 font-medium">{casino.name}</td>
+                          <td className="py-3 px-4 text-right">{casino.transactionCount}</td>
+                          <td className="py-3 px-4 text-right">${casino.totalDeposits.toFixed(2)}</td>
+                          <td className="py-3 px-4 text-right">${casino.totalWithdrawals.toFixed(2)}</td>
+                          <td className="py-3 px-4 text-right font-bold text-green-400">
+                            ${casino.totalGross.toFixed(2)}
+                          </td>
+                          <td className="py-3 px-4 text-right">{casino.employees?.length || 0}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Cards Tab */}
+        {activeTab === 'cards' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-400">Всего карт</span>
+                  <CreditCard className="w-5 h-5 text-blue-400" />
+                </div>
+                <div className="text-3xl font-bold">{data?.stats?.cardCount || 0}</div>
+              </div>
+              
+              <div className="bg-gray-800 border border-green-700 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-400">Свободные</span>
+                  <CreditCard className="w-5 h-5 text-green-400" />
+                </div>
+                <div className="text-3xl font-bold text-green-400">
+                  {(data?.stats?.cardCount || 0) - (data?.stats?.usedCardCount || 0)}
+                </div>
+              </div>
+              
+              <div className="bg-gray-800 border border-yellow-700 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-400">Назначенные</span>
+                  <CreditCard className="w-5 h-5 text-yellow-400" />
+                </div>
+                <div className="text-3xl font-bold text-yellow-400">0</div>
+              </div>
+              
+              <div className="bg-gray-800 border border-red-700 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-400">Использованные</span>
+                  <CreditCard className="w-5 h-5 text-red-400" />
+                </div>
+                <div className="text-3xl font-bold text-red-400">
+                  {data?.stats?.usedCardCount || 0}
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
