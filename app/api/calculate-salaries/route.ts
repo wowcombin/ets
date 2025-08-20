@@ -1,3 +1,4 @@
+// app/api/calculate-salaries/route.ts (исправленная версия)
 import { NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase/client'
 
@@ -50,7 +51,7 @@ export async function GET() {
     if (allTransactions.length === 0) {
       return NextResponse.json({
         success: false,
-        error: 'No transactions found for current month. Please sync data first.'
+        error: 'Нет транзакций за текущий месяц. Сначала выполните синхронизацию.'
       })
     }
     
@@ -64,7 +65,7 @@ export async function GET() {
     if (!employees || employees.length === 0) {
       return NextResponse.json({
         success: false,
-        error: 'No employees found'
+        error: 'Сотрудники не найдены'
       })
     }
     
@@ -94,9 +95,8 @@ export async function GET() {
     
     console.log(`Leader transaction: $${maxGrossProfit.toFixed(2)}, employee_id: ${leaderEmployeeId}`)
     
-    // Рассчитываем общий брутто и нетто
+    // Рассчитываем общий брутто
     const totalGross = allTransactions.reduce((sum, t) => sum + (parseFloat(t.gross_profit_usd) || 0), 0)
-    const totalNet = allTransactions.reduce((sum, t) => sum + (parseFloat(t.net_profit_usd) || 0), 0)
     
     // Получаем расходы
     const { data: expenses } = await supabase
@@ -117,7 +117,7 @@ export async function GET() {
     const salariesToInsert = []
     const salaryDetails = []
     
-    // Рассчитываем зарплаты для КАЖДОГО сотрудника (включая уволенных с транзакциями)
+    // Рассчитываем зарплаты для КАЖДОГО сотрудника
     for (const employee of employees) {
       const empTransactions = employeeTransactions.get(employee.id) || []
       const empGross = empTransactions.reduce((sum: number, t: any) => sum + (parseFloat(t.gross_profit_usd) || 0), 0)
@@ -153,16 +153,17 @@ export async function GET() {
         }
         
       } else {
-        // Обычные работники: 10% от своего брутто
+        // Обычные работники
         if (empGross > 0) {
+          // База: 10% от своего брутто
           baseSalary = empGross * 0.1
           
-          // ВАЖНО: Бонус $200 ТОЛЬКО если брутто больше $200
-          if (empGross > 200) {
+          // ИСПРАВЛЕНИЕ: Бонус $200 ТОЛЬКО если брутто >= $200
+          if (empGross >= 200) {
             bonus = 200
-            console.log(`${employee.username}: gross $${empGross.toFixed(2)} > $200, adding bonus $200`)
+            console.log(`${employee.username}: gross $${empGross.toFixed(2)} >= $200, adding bonus $200`)
           } else {
-            console.log(`${employee.username}: gross $${empGross.toFixed(2)} <= $200, NO bonus`)
+            console.log(`${employee.username}: gross $${empGross.toFixed(2)} < $200, NO bonus`)
           }
           
           // Бонус лидеру месяца (за самую большую транзакцию)
@@ -218,22 +219,39 @@ export async function GET() {
     // Находим информацию о лидере для ответа
     const leaderEmployee = leaderEmployeeId ? employees.find(e => e.id === leaderEmployeeId) : null
     
+    // Разделяем активных и уволенных
+    const activeEmployees = employees.filter(e => e.is_active && !e.username.includes('УВОЛЕН'))
+    const firedEmployees = employees.filter(e => !e.is_active || e.username.includes('УВОЛЕН'))
+    
+    // Добавляем информацию об уволенных с транзакциями
+    const firedWithTransactions = firedEmployees.filter(emp => {
+      const empTrans = employeeTransactions.get(emp.id) || []
+      return empTrans.length > 0
+    })
+    
     return NextResponse.json({
       success: true,
       month: monthCode,
       stats: {
         totalGross: totalGross.toFixed(2),
-        totalNet: totalNet.toFixed(2),
         totalExpenses: totalExpenses.toFixed(2),
         maxTransaction: maxGrossProfit.toFixed(2),
         leaderEmployee: leaderEmployee?.username || null,
         salariesCreated: salariesToInsert.length,
         totalEmployees: employees.length,
-        activeEmployees: employees.filter(e => e.is_active).length,
-        firedEmployees: employees.filter(e => !e.is_active).length,
+        activeEmployees: activeEmployees.length,
+        firedEmployees: firedEmployees.length,
+        firedWithTransactions: firedWithTransactions.length,
         totalTransactions: allTransactions.length
       },
-      salaries: salaryDetails
+      salaries: salaryDetails.sort((a, b) => {
+        // Сортировка: сначала менеджеры, потом активные, потом уволенные
+        if (a.is_manager && !b.is_manager) return -1
+        if (!a.is_manager && b.is_manager) return 1
+        if (a.is_active && !b.is_active) return -1
+        if (!a.is_active && b.is_active) return 1
+        return parseFloat(b.total) - parseFloat(a.total)
+      })
     })
     
   } catch (error: any) {
