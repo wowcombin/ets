@@ -56,7 +56,7 @@ function extractCardNumber(value: any): string {
   return String(value).replace(/[^0-9]/g, '')
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const startTime = Date.now()
   const results = {
     stats: {
