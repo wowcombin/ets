@@ -12,6 +12,7 @@ const JUNIOR_FOLDER_ID = '1FEtrBtiv5ZpxV4C9paFzKf8aQuNdwRdu'
 const TEST_SPREADSHEET_ID = '1i0IbJgxn7WwNH7T7VmOKz_xkH0GMfyGgpKKJqEmQqvA'
 const EXPENSES_SPREADSHEET_ID = '19LmZTOzZoX8eMhGPazMl9g_VPmOZ3YwMURWqcrvKkAU'
 const CARDS_SPREADSHEET_ID = '1qmT_Yg09BFpD6UKZz7LFs1SXGPtQYjzNlZ-tytsr3is'
+const THEMES_SPREADSHEET_ID = '1i0IbJgxn7WwNH7T7VmOKz_xkH0GMfyGgpKKJqEmQqvA' // Та же таблица что и TEST
 const GBP_TO_USD_RATE = 1.3
 
 // Менеджеры
@@ -64,6 +65,7 @@ export async function GET() {
       employeesProcessed: 0,
       transactionsCreated: 0,
       cardsProcessed: 0,
+      themesProcessed: 0,
       totalGross: 0,
       totalNet: 0,
       totalExpenses: 0,
@@ -72,7 +74,8 @@ export async function GET() {
     details: [] as any[],
     errors: [] as string[],
     employeesList: [] as string[],
-    transactionsByEmployee: {} as Record<string, number>
+    transactionsByEmployee: {} as Record<string, number>,
+    cardThemes: {} as Record<string, string[]>
   }
 
   try {
@@ -353,6 +356,73 @@ export async function GET() {
       }
     }
     
+    // НОВОЕ: Читаем August themes для статусов карт
+    try {
+      console.log(`Reading ${monthName} themes...`)
+      const themesRange = `${monthName} themes!A2:Z1000`
+      const themesResponse = await sheets.spreadsheets.values.get({
+        spreadsheetId: THEMES_SPREADSHEET_ID,
+        range: themesRange,
+        majorDimension: 'ROWS',
+        valueRenderOption: 'UNFORMATTED_VALUE'
+      })
+      
+      const themesRows = themesResponse.data.values || []
+      const usedCardsInThemes = new Set<string>()
+      
+      for (const row of themesRows) {
+        if (row[0]) {
+          const casino = String(row[0]).trim()
+          const cardsForCasino: string[] = []
+          
+          // Собираем все карты для этого казино (начиная с колонки B)
+          for (let i = 1; i < row.length; i++) {
+            if (row[i]) {
+              const cardNumber = extractCardNumber(row[i])
+              if (cardNumber) {
+                cardsForCasino.push(cardNumber)
+                usedCardsInThemes.add(cardNumber)
+              }
+            }
+          }
+          
+          if (cardsForCasino.length > 0) {
+            results.cardThemes[casino] = cardsForCasino
+            console.log(`${casino}: ${cardsForCasino.length} cards`)
+          }
+        }
+      }
+      
+      results.stats.themesProcessed = usedCardsInThemes.size
+      console.log(`Total unique cards in themes: ${usedCardsInThemes.size}`)
+      
+      // Обновляем статусы карт на основе themes
+      for (const cardNumber of usedCardsInThemes) {
+        // Находим в каком казино используется эта карта
+        let assignedCasino = ''
+        for (const [casino, cards] of Object.entries(results.cardThemes)) {
+          if (cards.includes(cardNumber)) {
+            assignedCasino = casino
+            break
+          }
+        }
+        
+        // Обновляем статус карты в базе данных
+        await supabase
+          .from('cards')
+          .update({ 
+            status: 'used',
+            casino_name: assignedCasino,
+            updated_at: new Date().toISOString()
+          })
+          .eq('card_number', cardNumber)
+      }
+      
+    } catch (e: any) {
+      console.log(`Error reading themes: ${e.message}`)
+      results.errors.push(`Themes: ${e.message}`)
+    }
+    
     console.log(`\n=== SYNC SUMMARY ===`)
     console.log(`Total transactions collected: ${allTransactions.length}`)
     console.log(`Total gross calculated: $${calculatedTotalGross.toFixed(2)}`)
@@ -432,10 +502,18 @@ export async function GET() {
         if (row[0]) {
           const cardNumber = extractCardNumber(row[0])
           if (cardNumber && cardNumber.length >= 15) {
+            // Проверяем, использована ли карта в themes
+            const isUsed = results.cardThemes && Object.values(results.cardThemes).some(
+              (casinoCards: any) => casinoCards.includes(cardNumber)
+            )
+            
             cards.push({
               card_number: cardNumber,
-              status: 'available',
+              status: isUsed ? 'used' : 'available',
               sheet: 'REVO UK',
+              casino_name: isUsed ? Object.keys(results.cardThemes).find(
+                casino => results.cardThemes[casino].includes(cardNumber)
+              ) : null
             })
           }
         }
@@ -465,6 +543,7 @@ export async function GET() {
     console.log(`Calculated gross: $${calculatedTotalGross.toFixed(2)}`)
     console.log(`Database gross: $${dbTotalGross.toFixed(2)}`)
     console.log(`Difference: $${(calculatedTotalGross - dbTotalGross).toFixed(2)}`)
+    console.log(`Cards with themes: ${results.stats.themesProcessed}`)
     
     const { count: finalTransCount } = await supabase
       .from('transactions')
@@ -490,9 +569,10 @@ export async function GET() {
       month: monthName,
       monthCode,
       details: results.transactionsByEmployee,
+      cardThemes: results.cardThemes,
       errors: results.errors,
       employeesList: results.employeesList,
-      message: `Обработано ${results.stats.employeesProcessed} сотрудников, ${results.stats.transactionsCreated} транзакций`
+      message: `Обработано ${results.stats.employeesProcessed} сотрудников, ${results.stats.transactionsCreated} транзакций, ${results.stats.themesProcessed} карт с темами`
     })
     
   } catch (error: any) {
