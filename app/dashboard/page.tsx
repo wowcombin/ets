@@ -186,26 +186,29 @@ export default function DashboardPage() {
     )
   }
 
-  // Правильно разделяем сотрудников на группы
+  // Правильно определяем активных и уволенных сотрудников
+  const activeEmployees = data?.employees?.filter(e => e.is_active && !e.username.includes('УВОЛЕН')) || []
+  const firedEmployees = data?.employees?.filter(e => !e.is_active || e.username.includes('УВОЛЕН')) || []
+  
+  // Также правильно определяем для всех сотрудников
+  const allEmployees = [...(data?.employees || []), ...(data?.firedEmployees || [])]
+  const totalActiveEmployees = allEmployees.filter(e => e.is_active && !e.username.includes('УВОЛЕН'))
+  const totalFiredEmployees = allEmployees.filter(e => !e.is_active || e.username.includes('УВОЛЕН'))
+  
+  // Правильно разделяем сотрудников на группы для зарплат
   const managers = data?.salaries?.filter(s => s.employee?.is_manager) || []
   
-  // Для работников проверяем через employees, а не через employee_id
   const workers = data?.salaries?.filter(s => !s.employee?.is_manager) || []
   
-  // Разделяем активных и уволенных работников на основе данных о сотрудниках
   const activeWorkers = workers.filter(s => {
-    const emp = data?.employees?.find(e => e.id === s.employee_id)
-    return emp && emp.is_active && !s.employee?.username?.includes('УВОЛЕН')
+    const emp = allEmployees.find(e => e.id === s.employee_id)
+    return emp && emp.is_active && !emp.username.includes('УВОЛЕН')
   })
   
   const firedWorkers = workers.filter(s => {
-    const emp = data?.employees?.find(e => e.id === s.employee_id)
-    return emp && (!emp.is_active || s.employee?.username?.includes('УВОЛЕН'))
+    const emp = allEmployees.find(e => e.id === s.employee_id)
+    return emp && (!emp.is_active || emp.username.includes('УВОЛЕН'))
   })
-  
-  // Также правильно считаем общее количество активных и уволенных
-  const activeEmployees = data?.employees?.filter(e => e.is_active && !e.username.includes('УВОЛЕН')) || []
-  const firedEmployees = data?.employees?.filter(e => !e.is_active || e.username.includes('УВОЛЕН')) || []
   
   // Находим лидера месяца
   const leaderSalary = data?.salaries?.find(s => s.leader_bonus > 0)
@@ -227,8 +230,7 @@ export default function DashboardPage() {
               </h1>
               <p className="text-sm text-gray-400 mt-1 flex items-center">
                 <Calendar className="w-4 h-4 mr-1" />
-                {currentMonth} • Всего сотрудников: {data?.stats?.totalEmployeeCount || 0} 
-                (активных: {activeEmployees.length}, уволенных: {firedEmployees.length})
+                {currentMonth}
                 {leaderSalary && (
                   <span className="ml-3 text-yellow-400 flex items-center">
                     <Trophy className="w-4 h-4 mr-1" />
@@ -372,6 +374,33 @@ export default function DashboardPage() {
                 <p className="text-xs text-gray-500 mt-2">
                   Использовано / Всего
                 </p>
+              </div>
+            </div>
+
+            {/* Employee Status Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-400">Всего сотрудников</span>
+                  <Users className="w-5 h-5 text-blue-400" />
+                </div>
+                <div className="text-3xl font-bold">{allEmployees.length}</div>
+              </div>
+              
+              <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-400">Активные</span>
+                  <UserCheck className="w-5 h-5 text-green-400" />
+                </div>
+                <div className="text-3xl font-bold text-green-400">{totalActiveEmployees.length}</div>
+              </div>
+              
+              <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-400">Уволенные</span>
+                  <UserX className="w-5 h-5 text-red-400" />
+                </div>
+                <div className="text-3xl font-bold text-red-400">{totalFiredEmployees.length}</div>
               </div>
             </div>
 
@@ -622,7 +651,7 @@ export default function DashboardPage() {
                   <span className="text-sm font-medium text-gray-400">Всего сотрудников</span>
                   <Users className="w-5 h-5 text-blue-400" />
                 </div>
-                <div className="text-3xl font-bold">{data?.stats?.totalEmployeeCount || 0}</div>
+                <div className="text-3xl font-bold">{allEmployees.length}</div>
               </div>
               
               <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
@@ -630,7 +659,7 @@ export default function DashboardPage() {
                   <span className="text-sm font-medium text-gray-400">Активные</span>
                   <UserCheck className="w-5 h-5 text-green-400" />
                 </div>
-                <div className="text-3xl font-bold text-green-400">{activeEmployees.length}</div>
+                <div className="text-3xl font-bold text-green-400">{totalActiveEmployees.length}</div>
               </div>
               
               <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
@@ -638,7 +667,7 @@ export default function DashboardPage() {
                   <span className="text-sm font-medium text-gray-400">Уволенные</span>
                   <UserX className="w-5 h-5 text-red-400" />
                 </div>
-                <div className="text-3xl font-bold text-red-400">{firedEmployees.length}</div>
+                <div className="text-3xl font-bold text-red-400">{totalFiredEmployees.length}</div>
               </div>
             </div>
             
@@ -662,18 +691,33 @@ export default function DashboardPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {data.employeeStats.map((stat: any) => (
-                          <tr key={stat.id} className="border-b border-gray-700/50 hover:bg-gray-700/30">
-                            <td className="py-3 px-4 font-medium">{stat.username}</td>
-                            <td className="py-3 px-4 text-right">{stat.transactionCount}</td>
-                            <td className="py-3 px-4 text-right">${stat.totalDeposits.toFixed(2)}</td>
-                            <td className="py-3 px-4 text-right">${stat.totalWithdrawals.toFixed(2)}</td>
-                            <td className="py-3 px-4 text-right font-bold text-green-400">
-                              ${stat.totalGross.toFixed(2)}
-                            </td>
-                            <td className="py-3 px-4 text-right">{stat.casinos?.length || 0}</td>
-                          </tr>
-                        ))}
+                        {data.employeeStats.map((stat: any) => {
+                          // Проверяем, уволен ли сотрудник
+                          const employee = allEmployees.find(e => e.username === stat.username)
+                          const isFired = employee && (!employee.is_active || employee.username.includes('УВОЛЕН'))
+                          
+                          return (
+                            <tr key={stat.id} className={`border-b border-gray-700/50 hover:bg-gray-700/30 ${
+                              isFired ? 'opacity-60' : ''
+                            }`}>
+                              <td className={`py-3 px-4 font-medium ${
+                                isFired ? 'text-red-400' : 'text-white'
+                              }`}>
+                                {stat.username}
+                                {isFired && <span className="ml-2 text-xs text-red-500">(Уволен)</span>}
+                              </td>
+                              <td className="py-3 px-4 text-right">{stat.transactionCount}</td>
+                              <td className="py-3 px-4 text-right">${stat.totalDeposits.toFixed(2)}</td>
+                              <td className="py-3 px-4 text-right">${stat.totalWithdrawals.toFixed(2)}</td>
+                              <td className={`py-3 px-4 text-right font-bold ${
+                                isFired ? 'text-red-400' : 'text-green-400'
+                              }`}>
+                                ${stat.totalGross.toFixed(2)}
+                              </td>
+                              <td className="py-3 px-4 text-right">{stat.casinos?.length || 0}</td>
+                            </tr>
+                          )
+                        })}
                       </tbody>
                     </table>
                   </div>
