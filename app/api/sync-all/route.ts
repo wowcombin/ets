@@ -181,18 +181,24 @@ export async function GET() {
         
         if (newEmp) {
           employeeMap.set(cleanUsername, newEmp.id)
+          console.log(`Created new employee: ${cleanUsername}, active: ${!isFired}`)
         }
       } else {
-        // Обновляем статус существующего сотрудника
-        await supabase
+        // ВАЖНО: Обновляем статус существующего сотрудника при каждой синхронизации
+        const { error: updateError } = await supabase
           .from('employees')
           .update({ 
             is_active: !isFired,
+            folder_id: folder.id,
             updated_at: new Date().toISOString()
           })
           .eq('username', cleanUsername)
         
-        console.log(`Updated ${cleanUsername} status: active=${!isFired}`)
+        if (!updateError) {
+          console.log(`Updated ${cleanUsername} status: active=${!isFired}`)
+        } else {
+          console.error(`Error updating ${cleanUsername}:`, updateError)
+        }
       }
       
       results.employeesList.push(cleanUsername)
