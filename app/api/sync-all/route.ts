@@ -3,8 +3,9 @@ import { getServiceSupabase } from '@/lib/supabase/client'
 import { google } from 'googleapis'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 300
+export const maxDuration = 300 // Максимальное время выполнения 5 минут
 export const runtime = 'nodejs'
+export const revalidate = 0 // Отключаем кэширование
 
 // Константы
 const JUNIOR_FOLDER_ID = '1FEtrBtiv5ZpxV4C9paFzKf8aQuNdwRdu'
@@ -50,6 +51,11 @@ function parseNumberValue(value: any): number {
 function extractCardNumber(value: any): string {
   if (!value) return ''
   return String(value).replace(/[^0-9]/g, '')
+}
+
+// Функция для добавления задержки
+function delay(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms))
 }
 
 export async function GET() {
@@ -177,7 +183,7 @@ export async function GET() {
     const allTransactions = []
     let calculatedTotalGross = 0
     
-    // Обрабатываем папки сотрудников
+    // Обрабатываем папки сотрудников с задержкой
     for (const folder of folders) {
       if (!folder.id || !folder.name) continue
       
@@ -190,6 +196,9 @@ export async function GET() {
       }
       
       try {
+        // Добавляем задержку между запросами
+        await delay(100)
+        
         // Ищем файл WORK в папке сотрудника
         const workFiles = await drive.files.list({
           q: `'${folder.id}' in parents and mimeType='application/vnd.google-apps.spreadsheet' and name contains 'WORK'`,
@@ -202,17 +211,24 @@ export async function GET() {
           continue
         }
         
-        const range = `${monthName}!A2:D5000`
+        // Увеличиваем диапазон до 10000 строк
+        const range = `${monthName}!A2:D10000`
         
         try {
+          // Добавляем задержку перед чтением таблицы
+          await delay(200)
+          
           const response = await sheets.spreadsheets.values.get({
             spreadsheetId: workFile.id,
             range,
+            majorDimension: 'ROWS',
+            valueRenderOption: 'UNFORMATTED_VALUE' // Получаем числа без форматирования
           })
           
           const rows = response.data.values || []
           console.log(`Processing ${rows.length} rows for ${cleanUsername}`)
           
+          let employeeTransactionCount = 0
           for (const row of rows) {
             if (row[0]) {
               const depositGbp = parseNumberValue(row[1])
@@ -237,13 +253,19 @@ export async function GET() {
               })
               
               calculatedTotalGross += grossProfit
+              employeeTransactionCount++
             }
+          }
+          
+          if (employeeTransactionCount > 0) {
+            console.log(`Added ${employeeTransactionCount} transactions for ${cleanUsername}`)
           }
         } catch (e: any) {
           console.log(`No ${monthName} sheet for ${cleanUsername}: ${e.message}`)
         }
       } catch (error: any) {
         console.error(`Error processing ${cleanUsername}:`, error.message)
+        results.errors.push(`${cleanUsername}: ${error.message}`)
       }
     }
     
@@ -251,15 +273,20 @@ export async function GET() {
     const sobrofficeId = employeeMap.get('@sobroffice')
     if (sobrofficeId) {
       try {
-        const testRange = `${monthName}!A2:D5000`
+        await delay(200) // Задержка перед чтением тестовой таблицы
+        
+        const testRange = `${monthName}!A2:D10000` // Увеличиваем диапазон
         const testResponse = await sheets.spreadsheets.values.get({
           spreadsheetId: TEST_SPREADSHEET_ID,
           range: testRange,
+          majorDimension: 'ROWS',
+          valueRenderOption: 'UNFORMATTED_VALUE'
         })
         
         const rows = testResponse.data.values || []
         console.log(`Processing ${rows.length} test transactions for @sobroffice`)
         
+        let testTransactionCount = 0
         for (const row of rows) {
           if (row[0]) {
             const depositGbp = parseNumberValue(row[1])
@@ -284,7 +311,12 @@ export async function GET() {
             })
             
             calculatedTotalGross += grossProfit
+            testTransactionCount++
           }
+        }
+        
+        if (testTransactionCount > 0) {
+          console.log(`Added ${testTransactionCount} test transactions`)
         }
       } catch (e: any) {
         console.log(`No test sheet: ${e.message}`)
@@ -294,20 +326,32 @@ export async function GET() {
     console.log(`Total transactions to insert: ${allTransactions.length}`)
     console.log(`Calculated total gross: $${calculatedTotalGross.toFixed(2)}`)
     
-    // Сохраняем транзакции
+    // Сохраняем транзакции батчами
     if (allTransactions.length > 0) {
-      const { error } = await supabase
-        .from('transactions')
-        .insert(allTransactions)
+      console.log(`Inserting ${allTransactions.length} transactions in batches...`)
       
-      if (error) {
-        console.error('Transaction insert error:', error)
-        results.errors.push(`Transaction error: ${error.message}`)
-      } else {
-        results.stats.transactionsCreated = allTransactions.length
-        results.stats.totalGross = calculatedTotalGross
-        console.log(`Inserted ${allTransactions.length} transactions`)
+      // Разбиваем на батчи по 500 записей
+      const batchSize = 500
+      for (let i = 0; i < allTransactions.length; i += batchSize) {
+        const batch = allTransactions.slice(i, i + batchSize)
+        const { error } = await supabase
+          .from('transactions')
+          .insert(batch)
+        
+        if (error) {
+          console.error(`Batch ${i / batchSize + 1} insert error:`, error)
+          results.errors.push(`Batch error: ${error.message}`)
+        } else {
+          console.log(`Inserted batch ${i / batchSize + 1} (${batch.length} records)`)
+        }
+        
+        // Небольшая задержка между батчами
+        await delay(100)
       }
+      
+      results.stats.transactionsCreated = allTransactions.length
+      results.stats.totalGross = calculatedTotalGross
+      console.log(`Total inserted: ${allTransactions.length} transactions`)
     }
     
     // Читаем расходы
