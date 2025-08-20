@@ -73,7 +73,7 @@ export async function GET() {
     
     // Группируем транзакции по сотрудникам
     const employeeTransactions = new Map()
-    const employeeGrossMap = new Map() // Для хранения брутто каждого сотрудника
+    const employeeGrossMap = new Map()
     
     for (const transaction of allTransactions) {
       if (!employeeTransactions.has(transaction.employee_id)) {
@@ -82,7 +82,6 @@ export async function GET() {
       }
       employeeTransactions.get(transaction.employee_id).push(transaction)
       
-      // Суммируем брутто для каждого сотрудника
       const currentGross = employeeGrossMap.get(transaction.employee_id) || 0
       employeeGrossMap.set(transaction.employee_id, currentGross + (parseFloat(transaction.gross_profit_usd) || 0))
     }
@@ -143,7 +142,7 @@ export async function GET() {
         const workersGross = allTransactions
           .filter((t: any) => {
             const emp = employees?.find(e => e.id === t.employee_id)
-            return emp && !emp.is_manager // только работники, не менеджеры
+            return emp && !emp.is_manager
           })
           .reduce((sum: number, t: any) => sum + (parseFloat(t.gross_profit_usd) || 0), 0)
         
@@ -173,14 +172,14 @@ export async function GET() {
           // База: 10% от своего брутто
           baseSalary = empGross * 0.1
           
-          // ВАЖНО: Бонус $200 ТОЛЬКО если брутто >= $200
-          // Проверяем что брутто сотрудника действительно >= 200
+          // ВАЖНО: Бонус $200 ТОЛЬКО если брутто >= $2000
+          // Проверяем что брутто сотрудника действительно >= 2000
           if (empGross >= 2000) {
             bonus = 200
-            console.log(`  ${employee.username}: gross $${empGross.toFixed(2)} >= $200, ADDING bonus $200`)
+            console.log(`  ${employee.username}: gross $${empGross.toFixed(2)} >= $2000, ADDING bonus $200`)
           } else {
-            bonus = 0 // НЕ даем бонус если брутто < 200
-            console.log(`  ${employee.username}: gross $${empGross.toFixed(2)} < $200, NO BONUS`)
+            bonus = 0 // НЕ даем бонус если брутто < 2000
+            console.log(`  ${employee.username}: gross $${empGross.toFixed(2)} < $2000, NO BONUS`)
           }
           
           // Бонус лидеру месяца (за самую большую транзакцию)
