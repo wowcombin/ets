@@ -3,9 +3,9 @@ import { getServiceSupabase } from '@/lib/supabase/client'
 import { google } from 'googleapis'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 300 // Максимальное время выполнения 5 минут
+export const maxDuration = 300
 export const runtime = 'nodejs'
-export const revalidate = 0 // Отключаем кэширование
+export const revalidate = 0
 
 // Константы
 const JUNIOR_FOLDER_ID = '1FEtrBtiv5ZpxV4C9paFzKf8aQuNdwRdu'
@@ -36,7 +36,7 @@ function getCurrentMonthCode(): string {
 }
 
 function parseNumberValue(value: any): number {
-  if (!value) return 0
+  if (!value && value !== 0) return 0
   if (typeof value === 'number') return value
   
   let str = String(value).trim()
@@ -53,7 +53,6 @@ function extractCardNumber(value: any): string {
   return String(value).replace(/[^0-9]/g, '')
 }
 
-// Функция для добавления задержки
 function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
@@ -72,7 +71,8 @@ export async function GET() {
     },
     details: [] as any[],
     errors: [] as string[],
-    employeesList: [] as string[]
+    employeesList: [] as string[],
+    transactionsByEmployee: {} as Record<string, number>
   }
 
   try {
@@ -96,9 +96,18 @@ export async function GET() {
     const sheets = google.sheets({ version: 'v4', auth })
     const supabase = getServiceSupabase()
     
-    // Очищаем старые данные за текущий месяц
-    console.log(`Clearing old data for ${monthCode}...`)
-    await supabase.from('transactions').delete().eq('month', monthCode)
+    // ВАЖНО: Очищаем ВСЕ старые данные за текущий месяц
+    console.log(`Clearing ALL old data for ${monthCode}...`)
+    
+    const { error: delTransError } = await supabase
+      .from('transactions')
+      .delete()
+      .eq('month', monthCode)
+    
+    if (delTransError) {
+      console.error('Error deleting transactions:', delTransError)
+    }
+    
     await supabase.from('expenses').delete().eq('month', monthCode)
     await supabase.from('salaries').delete().eq('month', monthCode)
     
@@ -130,7 +139,6 @@ export async function GET() {
         
         if (newEmp) {
           employeeMap.set(username, newEmp.id)
-          console.log(`Created manager: ${username}`)
         }
       }
     }
@@ -169,7 +177,6 @@ export async function GET() {
         
         if (newEmp) {
           employeeMap.set(cleanUsername, newEmp.id)
-          console.log(`Created employee: ${cleanUsername}`)
         }
       }
       
@@ -179,12 +186,14 @@ export async function GET() {
     
     console.log(`Total employees in map: ${employeeMap.size}`)
     
-    // Читаем транзакции
+    // Массив для всех транзакций
     const allTransactions = []
     let calculatedTotalGross = 0
+    let processedEmployees = 0
     
-    // Обрабатываем папки сотрудников с задержкой
-    for (const folder of folders) {
+    // Обрабатываем папки сотрудников последовательно
+    for (let i = 0; i < folders.length; i++) {
+      const folder = folders[i]
       if (!folder.id || !folder.name) continue
       
       const cleanUsername = folder.name.replace(' УВОЛЕН', '').trim()
@@ -196,10 +205,12 @@ export async function GET() {
       }
       
       try {
-        // Добавляем задержку между запросами
-        await delay(100)
+        // Небольшая задержка между запросами
+        if (i > 0 && i % 5 === 0) {
+          await delay(500) // Задержка каждые 5 сотрудников
+        }
         
-        // Ищем файл WORK в папке сотрудника
+        // Ищем файл WORK
         const workFiles = await drive.files.list({
           q: `'${folder.id}' in parents and mimeType='application/vnd.google-apps.spreadsheet' and name contains 'WORK'`,
           fields: 'files(id, name)',
@@ -211,57 +222,62 @@ export async function GET() {
           continue
         }
         
-        // Увеличиваем диапазон до 10000 строк
         const range = `${monthName}!A2:D10000`
         
         try {
-          // Добавляем задержку перед чтением таблицы
-          await delay(200)
+          await delay(100)
           
           const response = await sheets.spreadsheets.values.get({
             spreadsheetId: workFile.id,
             range,
             majorDimension: 'ROWS',
-            valueRenderOption: 'UNFORMATTED_VALUE' // Получаем числа без форматирования
+            valueRenderOption: 'UNFORMATTED_VALUE'
           })
           
           const rows = response.data.values || []
-          console.log(`Processing ${rows.length} rows for ${cleanUsername}`)
           
-          let employeeTransactionCount = 0
-          for (const row of rows) {
-            if (row[0]) {
-              const depositGbp = parseNumberValue(row[1])
-              const withdrawalGbp = parseNumberValue(row[2])
-              const cardNumber = extractCardNumber(row[3])
-              
-              const depositUsd = depositGbp * GBP_TO_USD_RATE
-              const withdrawalUsd = withdrawalGbp * GBP_TO_USD_RATE
-              const grossProfit = withdrawalUsd - depositUsd
-              
-              allTransactions.push({
-                employee_id: employeeId,
-                month: monthCode,
-                casino_name: String(row[0]).trim(),
-                deposit_gbp: depositGbp,
-                withdrawal_gbp: withdrawalGbp,
-                deposit_usd: depositUsd,
-                withdrawal_usd: withdrawalUsd,
-                card_number: cardNumber,
-                gross_profit_usd: grossProfit,
-                net_profit_usd: grossProfit,
-              })
-              
-              calculatedTotalGross += grossProfit
-              employeeTransactionCount++
+          if (rows.length > 0) {
+            let employeeGross = 0
+            let employeeTransactionCount = 0
+            
+            for (const row of rows) {
+              // Проверяем что есть хотя бы казино
+              if (row[0]) {
+                const depositGbp = parseNumberValue(row[1])
+                const withdrawalGbp = parseNumberValue(row[2])
+                const cardNumber = extractCardNumber(row[3])
+                
+                const depositUsd = Math.round(depositGbp * GBP_TO_USD_RATE * 100) / 100
+                const withdrawalUsd = Math.round(withdrawalGbp * GBP_TO_USD_RATE * 100) / 100
+                const grossProfit = withdrawalUsd - depositUsd
+                
+                allTransactions.push({
+                  employee_id: employeeId,
+                  month: monthCode,
+                  casino_name: String(row[0]).trim(),
+                  deposit_gbp: depositGbp,
+                  withdrawal_gbp: withdrawalGbp,
+                  deposit_usd: depositUsd,
+                  withdrawal_usd: withdrawalUsd,
+                  card_number: cardNumber,
+                  gross_profit_usd: grossProfit,
+                  net_profit_usd: grossProfit,
+                })
+                
+                employeeGross += grossProfit
+                calculatedTotalGross += grossProfit
+                employeeTransactionCount++
+              }
+            }
+            
+            if (employeeTransactionCount > 0) {
+              console.log(`${cleanUsername}: ${employeeTransactionCount} transactions, gross: $${employeeGross.toFixed(2)}`)
+              results.transactionsByEmployee[cleanUsername] = employeeGross
+              processedEmployees++
             }
           }
-          
-          if (employeeTransactionCount > 0) {
-            console.log(`Added ${employeeTransactionCount} transactions for ${cleanUsername}`)
-          }
         } catch (e: any) {
-          console.log(`No ${monthName} sheet for ${cleanUsername}: ${e.message}`)
+          console.log(`Error reading ${monthName} sheet for ${cleanUsername}: ${e.message}`)
         }
       } catch (error: any) {
         console.error(`Error processing ${cleanUsername}:`, error.message)
@@ -273,9 +289,9 @@ export async function GET() {
     const sobrofficeId = employeeMap.get('@sobroffice')
     if (sobrofficeId) {
       try {
-        await delay(200) // Задержка перед чтением тестовой таблицы
+        await delay(200)
         
-        const testRange = `${monthName}!A2:D10000` // Увеличиваем диапазон
+        const testRange = `${monthName}!A2:D10000`
         const testResponse = await sheets.spreadsheets.values.get({
           spreadsheetId: TEST_SPREADSHEET_ID,
           range: testRange,
@@ -284,17 +300,17 @@ export async function GET() {
         })
         
         const rows = testResponse.data.values || []
-        console.log(`Processing ${rows.length} test transactions for @sobroffice`)
-        
+        let testGross = 0
         let testTransactionCount = 0
+        
         for (const row of rows) {
           if (row[0]) {
             const depositGbp = parseNumberValue(row[1])
             const withdrawalGbp = parseNumberValue(row[2])
             const cardNumber = extractCardNumber(row[3])
             
-            const depositUsd = depositGbp * GBP_TO_USD_RATE
-            const withdrawalUsd = withdrawalGbp * GBP_TO_USD_RATE
+            const depositUsd = Math.round(depositGbp * GBP_TO_USD_RATE * 100) / 100
+            const withdrawalUsd = Math.round(withdrawalGbp * GBP_TO_USD_RATE * 100) / 100
             const grossProfit = withdrawalUsd - depositUsd
             
             allTransactions.push({
@@ -310,48 +326,51 @@ export async function GET() {
               net_profit_usd: grossProfit,
             })
             
+            testGross += grossProfit
             calculatedTotalGross += grossProfit
             testTransactionCount++
           }
         }
         
         if (testTransactionCount > 0) {
-          console.log(`Added ${testTransactionCount} test transactions`)
+          console.log(`@sobroffice TEST: ${testTransactionCount} transactions, gross: $${testGross.toFixed(2)}`)
+          results.transactionsByEmployee['@sobroffice'] = (results.transactionsByEmployee['@sobroffice'] || 0) + testGross
         }
       } catch (e: any) {
-        console.log(`No test sheet: ${e.message}`)
+        console.log(`Error reading test sheet: ${e.message}`)
       }
     }
     
-    console.log(`Total transactions to insert: ${allTransactions.length}`)
-    console.log(`Calculated total gross: $${calculatedTotalGross.toFixed(2)}`)
+    console.log(`\n=== SYNC SUMMARY ===`)
+    console.log(`Total transactions collected: ${allTransactions.length}`)
+    console.log(`Total gross calculated: $${calculatedTotalGross.toFixed(2)}`)
+    console.log(`Employees with transactions: ${processedEmployees}`)
     
     // Сохраняем транзакции батчами
     if (allTransactions.length > 0) {
-      console.log(`Inserting ${allTransactions.length} transactions in batches...`)
-      
-      // Разбиваем на батчи по 500 записей
       const batchSize = 500
+      let insertedCount = 0
+      
       for (let i = 0; i < allTransactions.length; i += batchSize) {
         const batch = allTransactions.slice(i, i + batchSize)
-        const { error } = await supabase
+        const { error, data } = await supabase
           .from('transactions')
           .insert(batch)
+          .select()
         
         if (error) {
-          console.error(`Batch ${i / batchSize + 1} insert error:`, error)
+          console.error(`Batch insert error:`, error)
           results.errors.push(`Batch error: ${error.message}`)
         } else {
-          console.log(`Inserted batch ${i / batchSize + 1} (${batch.length} records)`)
+          insertedCount += data?.length || 0
+          console.log(`Inserted batch: ${data?.length} records`)
         }
         
-        // Небольшая задержка между батчами
         await delay(100)
       }
       
-      results.stats.transactionsCreated = allTransactions.length
-      results.stats.totalGross = calculatedTotalGross
-      console.log(`Total inserted: ${allTransactions.length} transactions`)
+      console.log(`Total inserted to DB: ${insertedCount} transactions`)
+      results.stats.transactionsCreated = insertedCount
     }
     
     // Читаем расходы
@@ -360,6 +379,7 @@ export async function GET() {
       const expenseResponse = await sheets.spreadsheets.values.get({
         spreadsheetId: EXPENSES_SPREADSHEET_ID,
         range: expenseRange,
+        valueRenderOption: 'UNFORMATTED_VALUE'
       })
       
       const rows = expenseResponse.data.values || []
@@ -378,13 +398,10 @@ export async function GET() {
           amount_usd: totalExpenses,
         }])
         results.stats.totalExpenses = totalExpenses
-        console.log(`Total expenses: $${totalExpenses}`)
       }
     } catch (e: any) {
       console.log(`No expenses found: ${e.message}`)
     }
-    
-    results.stats.totalNet = results.stats.totalGross - results.stats.totalExpenses
     
     // Карты
     try {
@@ -393,6 +410,7 @@ export async function GET() {
       const cardsResponse = await sheets.spreadsheets.values.get({
         spreadsheetId: CARDS_SPREADSHEET_ID,
         range: 'REVO UK!A2:E1000',
+        valueRenderOption: 'UNFORMATTED_VALUE'
       })
       
       const cards: any[] = []
@@ -414,21 +432,27 @@ export async function GET() {
       if (cards.length > 0) {
         await supabase.from('cards').insert(cards)
         results.stats.cardsProcessed = cards.length
-        console.log(`Inserted ${cards.length} cards`)
       }
     } catch (e: any) {
       console.log(`Cards error: ${e.message}`)
     }
     
-    // Проверяем финальные данные в БД
-    const { data: finalTransactions } = await supabase
+    // ВАЖНО: Проверяем финальные данные в БД
+    const { data: finalTransactions, error: finalError } = await supabase
       .from('transactions')
       .select('gross_profit_usd')
       .eq('month', monthCode)
     
+    if (finalError) {
+      console.error('Error fetching final transactions:', finalError)
+    }
+    
     const dbTotalGross = finalTransactions?.reduce((sum, t) => sum + (t.gross_profit_usd || 0), 0) || 0
     
-    console.log(`Final DB total gross: $${dbTotalGross.toFixed(2)}`)
+    console.log(`\n=== FINAL VERIFICATION ===`)
+    console.log(`Calculated gross: $${calculatedTotalGross.toFixed(2)}`)
+    console.log(`Database gross: $${dbTotalGross.toFixed(2)}`)
+    console.log(`Difference: $${(calculatedTotalGross - dbTotalGross).toFixed(2)}`)
     
     const { count: finalTransCount } = await supabase
       .from('transactions')
@@ -439,18 +463,21 @@ export async function GET() {
       .from('employees')
       .select('*', { count: 'exact', head: true })
     
+    // Используем значение из БД как финальное
+    results.stats.totalGross = dbTotalGross
+    results.stats.totalNet = dbTotalGross - results.stats.totalExpenses
+    
     return NextResponse.json({
       success: true,
       stats: {
         ...results.stats,
-        totalGross: dbTotalGross,
         timeElapsed: `${Date.now() - startTime}ms`,
         transactionsInDb: finalTransCount || 0,
         totalEmployeesInDb: finalEmpCount || 0
       },
       month: monthName,
       monthCode,
-      details: results.details,
+      details: results.transactionsByEmployee,
       errors: results.errors,
       employeesList: results.employeesList,
       message: `Обработано ${results.stats.employeesProcessed} сотрудников, ${results.stats.transactionsCreated} транзакций`
