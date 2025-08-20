@@ -727,7 +727,398 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Other tabs remain the same... */}
+        {/* Casinos Tab */}
+        {activeTab === 'casinos' && (
+          <div className="space-y-6">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+              <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-400">Всего казино</span>
+                  <PieChart className="w-5 h-5 text-purple-400" />
+                </div>
+                <div className="text-3xl font-bold">{data?.casinoStats?.length || 0}</div>
+              </div>
+              
+              <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-400">Общий брутто</span>
+                  <TrendingUp className="w-5 h-5 text-green-400" />
+                </div>
+                <div className="text-3xl font-bold text-green-400">
+                  ${data?.casinoStats?.reduce((sum: number, c: any) => sum + c.totalGross, 0).toFixed(2) || '0.00'}
+                </div>
+              </div>
+              
+              <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-400">Всего транзакций</span>
+                  <Activity className="w-5 h-5 text-blue-400" />
+                </div>
+                <div className="text-3xl font-bold text-blue-400">
+                  {data?.casinoStats?.reduce((sum: number, c: any) => sum + c.transactionCount, 0) || 0}
+                </div>
+              </div>
+              
+              <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-400">Средний профит</span>
+                  <DollarSign className="w-5 h-5 text-yellow-400" />
+                </div>
+                <div className="text-3xl font-bold text-yellow-400">
+                  ${(() => {
+                    const totalGross = data?.casinoStats?.reduce((sum: number, c: any) => sum + c.totalGross, 0) || 0
+                    const totalTransactions = data?.casinoStats?.reduce((sum: number, c: any) => sum + c.transactionCount, 0) || 1
+                    return (totalGross / totalTransactions).toFixed(2)
+                  })()}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">На транзакцию</p>
+              </div>
+            </div>
+            
+            {/* Casino Statistics Table */}
+            {data?.casinoStats && data.casinoStats.length > 0 && (
+              <div className="bg-gray-800 border border-gray-700 rounded-lg">
+                <div className="p-6 border-b border-gray-700">
+                  <h2 className="text-xl font-bold flex items-center gap-2">
+                    <PieChart className="w-5 h-5" />
+                    Статистика по казино
+                  </h2>
+                </div>
+                <div className="p-6">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-gray-700">
+                          <th className="text-left py-3 px-4 text-gray-400">#</th>
+                          <th className="text-left py-3 px-4 text-gray-400">Казино</th>
+                          <th className="text-right py-3 px-4 text-gray-400">Транзакций</th>
+                          <th className="text-right py-3 px-4 text-gray-400">Депозиты</th>
+                          <th className="text-right py-3 px-4 text-gray-400">Выводы</th>
+                          <th className="text-right py-3 px-4 text-gray-400">Брутто профит</th>
+                          <th className="text-right py-3 px-4 text-gray-400">Средний профит</th>
+                          <th className="text-right py-3 px-4 text-gray-400">% от общего</th>
+                          <th className="text-right py-3 px-4 text-gray-400">Сотрудников</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.casinoStats.map((casino: any, index: number) => {
+                          const totalGross = data.casinoStats.reduce((sum: number, c: any) => sum + c.totalGross, 0)
+                          const averageProfit = casino.totalGross / (casino.transactionCount || 1)
+                          const percentage = (casino.totalGross / totalGross) * 100
+                          
+                          return (
+                            <tr key={index} className="border-b border-gray-700/50 hover:bg-gray-700/30">
+                              <td className="py-3 px-4 text-gray-500">{index + 1}</td>
+                              <td className="py-3 px-4 font-medium">{casino.name}</td>
+                              <td className="py-3 px-4 text-right">{casino.transactionCount}</td>
+                              <td className="py-3 px-4 text-right text-red-400">
+                                ${casino.totalDeposits.toFixed(2)}
+                              </td>
+                              <td className="py-3 px-4 text-right text-blue-400">
+                                ${casino.totalWithdrawals.toFixed(2)}
+                              </td>
+                              <td className={`py-3 px-4 text-right font-bold ${
+                                casino.totalGross >= 0 ? 'text-green-400' : 'text-red-400'
+                              }`}>
+                                ${casino.totalGross.toFixed(2)}
+                              </td>
+                              <td className={`py-3 px-4 text-right font-medium ${
+                                averageProfit >= 0 ? 'text-yellow-400' : 'text-orange-400'
+                              }`}>
+                                ${averageProfit.toFixed(2)}
+                              </td>
+                              <td className="py-3 px-4 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  <div className="w-16 bg-gray-700 rounded-full h-2">
+                                    <div 
+                                      className="bg-blue-500 h-2 rounded-full"
+                                      style={{ width: `${Math.min(percentage, 100)}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-sm">{percentage.toFixed(1)}%</span>
+                                </div>
+                              </td>
+                              <td className="py-3 px-4 text-right">{casino.employees?.length || 0}</td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                      <tfoot>
+                        <tr className="border-t-2 border-gray-600 font-bold">
+                          <td colSpan={2} className="py-3 px-4">Итого</td>
+                          <td className="py-3 px-4 text-right">
+                            {data.casinoStats.reduce((sum: number, c: any) => sum + c.transactionCount, 0)}
+                          </td>
+                          <td className="py-3 px-4 text-right text-red-400">
+                            ${data.casinoStats.reduce((sum: number, c: any) => sum + c.totalDeposits, 0).toFixed(2)}
+                          </td>
+                          <td className="py-3 px-4 text-right text-blue-400">
+                            ${data.casinoStats.reduce((sum: number, c: any) => sum + c.totalWithdrawals, 0).toFixed(2)}
+                          </td>
+                          <td className="py-3 px-4 text-right text-green-400">
+                            ${data.casinoStats.reduce((sum: number, c: any) => sum + c.totalGross, 0).toFixed(2)}
+                          </td>
+                          <td className="py-3 px-4 text-right text-yellow-400">
+                            ${(() => {
+                              const total = data.casinoStats.reduce((sum: number, c: any) => sum + c.totalGross, 0)
+                              const count = data.casinoStats.reduce((sum: number, c: any) => sum + c.transactionCount, 0)
+                              return (total / (count || 1)).toFixed(2)
+                            })()}
+                          </td>
+                          <td className="py-3 px-4 text-right">100%</td>
+                          <td className="py-3 px-4 text-right">-</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Top 5 Profitable Casinos */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-gray-800 border border-gray-700 rounded-lg">
+                <div className="p-6 border-b border-gray-700">
+                  <h3 className="text-lg font-bold text-green-400">Топ-5 прибыльных казино</h3>
+                </div>
+                <div className="p-6">
+                  {data?.casinoStats?.slice(0, 5).map((casino: any, index: number) => (
+                    <div key={index} className="flex justify-between items-center py-2 border-b border-gray-700/50 last:border-0">
+                      <div>
+                        <span className="font-medium">{index + 1}. {casino.name}</span>
+                        <span className="text-xs text-gray-400 ml-2">({casino.transactionCount} транз.)</span>
+                      </div>
+                      <span className="font-bold text-green-400">${casino.totalGross.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="bg-gray-800 border border-gray-700 rounded-lg">
+                <div className="p-6 border-b border-gray-700">
+                  <h3 className="text-lg font-bold text-yellow-400">Топ-5 по среднему профиту</h3>
+                </div>
+                <div className="p-6">
+                  {data?.casinoStats
+                    ?.map((casino: any) => ({
+                      ...casino,
+                      avgProfit: casino.totalGross / (casino.transactionCount || 1)
+                    }))
+                    .sort((a: any, b: any) => b.avgProfit - a.avgProfit)
+                    .slice(0, 5)
+                    .map((casino: any, index: number) => (
+                      <div key={index} className="flex justify-between items-center py-2 border-b border-gray-700/50 last:border-0">
+                        <div>
+                          <span className="font-medium">{index + 1}. {casino.name}</span>
+                          <span className="text-xs text-gray-400 ml-2">({casino.transactionCount} транз.)</span>
+                        </div>
+                        <span className="font-bold text-yellow-400">${casino.avgProfit.toFixed(2)}</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
+            
+            {/* Casino Performance Chart (placeholder for future chart implementation) */}
+            <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+              <h3 className="text-lg font-bold mb-4">Распределение профита по казино</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {data?.casinoStats?.slice(0, 8).map((casino: any, index: number) => {
+                  const totalGross = data.casinoStats.reduce((sum: number, c: any) => sum + c.totalGross, 0)
+                  const percentage = (casino.totalGross / totalGross) * 100
+                  
+                  return (
+                    <div key={index} className="text-center">
+                      <div className="relative w-20 h-20 mx-auto mb-2">
+                        <svg className="w-20 h-20 transform -rotate-90">
+                          <circle
+                            cx="40"
+                            cy="40"
+                            r="36"
+                            stroke="currentColor"
+                            strokeWidth="8"
+                            fill="none"
+                            className="text-gray-700"
+                          />
+                          <circle
+                            cx="40"
+                            cy="40"
+                            r="36"
+                            stroke="currentColor"
+                            strokeWidth="8"
+                            fill="none"
+                            strokeDasharray={`${2 * Math.PI * 36}`}
+                            strokeDashoffset={`${2 * Math.PI * 36 * (1 - percentage / 100)}`}
+                            className="text-blue-500"
+                          />
+                        </svg>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-sm font-bold">{percentage.toFixed(0)}%</span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-400 truncate">{casino.name}</p>
+                      <p className="text-sm font-bold">${casino.totalGross.toFixed(0)}</p>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Cards Tab */}
+        {activeTab === 'cards' && (
+          <div className="space-y-6">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+              <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-400">Всего карт</span>
+                  <CreditCard className="w-5 h-5 text-purple-400" />
+                </div>
+                <div className="text-3xl font-bold">{data?.stats?.cardCount || 0}</div>
+              </div>
+              
+              <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-400">Доступные</span>
+                  <CreditCard className="w-5 h-5 text-green-400" />
+                </div>
+                <div className="text-3xl font-bold text-green-400">
+                  {data?.cards?.filter(c => c.status === 'available').length || 0}
+                </div>
+              </div>
+              
+              <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-400">Назначенные</span>
+                  <CreditCard className="w-5 h-5 text-yellow-400" />
+                </div>
+                <div className="text-3xl font-bold text-yellow-400">
+                  {data?.cards?.filter(c => c.status === 'assigned').length || 0}
+                </div>
+              </div>
+              
+              <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-400">Использованные</span>
+                  <CreditCard className="w-5 h-5 text-red-400" />
+                </div>
+                <div className="text-3xl font-bold text-red-400">
+                  {data?.cards?.filter(c => c.status === 'used').length || 0}
+                </div>
+              </div>
+            </div>
+            
+            {/* Cards by Casino */}
+            {data?.cards && data.cards.length > 0 && (
+              <div className="bg-gray-800 border border-gray-700 rounded-lg">
+                <div className="p-6 border-b border-gray-700">
+                  <h2 className="text-xl font-bold flex items-center gap-2">
+                    <CreditCard className="w-5 h-5" />
+                    Использование карт по казино
+                  </h2>
+                </div>
+                <div className="p-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {(() => {
+                      // Группируем карты по казино
+                      const cardsByCasino: Record<string, number> = {}
+                      data.cards.forEach(card => {
+                        if (card.status === 'used' && card.casino_name) {
+                          cardsByCasino[card.casino_name] = (cardsByCasino[card.casino_name] || 0) + 1
+                        }
+                      })
+                      
+                      return Object.entries(cardsByCasino)
+                        .sort(([, a], [, b]) => b - a)
+                        .map(([casino, count]) => (
+                          <div key={casino} className="bg-gray-700/50 rounded-lg p-4">
+                            <div className="flex justify-between items-center">
+                              <span className="font-medium text-gray-300">{casino}</span>
+                              <span className="text-lg font-bold text-blue-400">{count}</span>
+                            </div>
+                            <div className="mt-2">
+                              <div className="w-full bg-gray-600 rounded-full h-2">
+                                <div 
+                                  className="bg-blue-500 h-2 rounded-full"
+                                  style={{ 
+                                    width: `${Math.min((count / (data.cards.filter(c => c.status === 'used').length || 1)) * 100, 100)}%` 
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                    })()}
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Cards Status Overview */}
+            <div className="bg-gray-800 border border-gray-700 rounded-lg">
+              <div className="p-6 border-b border-gray-700">
+                <h2 className="text-xl font-bold">Статус карт</h2>
+              </div>
+              <div className="p-6">
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex justify-between mb-2">
+                      <span className="text-gray-400">Доступные</span>
+                      <span className="text-green-400 font-bold">
+                        {data?.cards?.filter(c => c.status === 'available').length || 0} / {data?.stats?.cardCount || 0}
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-3">
+                      <div 
+                        className="bg-green-500 h-3 rounded-full"
+                        style={{ 
+                          width: `${((data?.cards?.filter(c => c.status === 'available').length || 0) / (data?.stats?.cardCount || 1)) * 100}%` 
+                        }}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <div className="flex justify-between mb-2">
+                      <span className="text-gray-400">Назначенные</span>
+                      <span className="text-yellow-400 font-bold">
+                        {data?.cards?.filter(c => c.status === 'assigned').length || 0} / {data?.stats?.cardCount || 0}
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-3">
+                      <div 
+                        className="bg-yellow-500 h-3 rounded-full"
+                        style={{ 
+                          width: `${((data?.cards?.filter(c => c.status === 'assigned').length || 0) / (data?.stats?.cardCount || 1)) * 100}%` 
+                        }}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <div className="flex justify-between mb-2">
+                      <span className="text-gray-400">Использованные</span>
+                      <span className="text-red-400 font-bold">
+                        {data?.cards?.filter(c => c.status === 'used').length || 0} / {data?.stats?.cardCount || 0}
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-3">
+                      <div 
+                        className="bg-red-500 h-3 rounded-full"
+                        style={{ 
+                          width: `${((data?.cards?.filter(c => c.status === 'used').length || 0) / (data?.stats?.cardCount || 1)) * 100}%` 
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
