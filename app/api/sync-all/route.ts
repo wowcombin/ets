@@ -102,18 +102,10 @@ export async function GET() {
     const sheets = google.sheets({ version: 'v4', auth })
     const supabase = getServiceSupabase()
     
-    // ВАЖНО: Очищаем ВСЕ старые данные за текущий месяц
-    console.log(`Clearing ALL old data for ${monthCode}...`)
+    // Очищаем старые данные за текущий месяц
+    console.log(`Clearing old data for ${monthCode}...`)
     
-    const { error: delTransError } = await supabase
-      .from('transactions')
-      .delete()
-      .eq('month', monthCode)
-    
-    if (delTransError) {
-      console.error('Error deleting transactions:', delTransError)
-    }
-    
+    await supabase.from('transactions').delete().eq('month', monthCode)
     await supabase.from('expenses').delete().eq('month', monthCode)
     await supabase.from('salaries').delete().eq('month', monthCode)
     
@@ -147,7 +139,6 @@ export async function GET() {
           employeeMap.set(username, newEmp.id)
         }
       } else {
-        // Обновляем существующего менеджера
         await supabase
           .from('employees')
           .update({
@@ -208,8 +199,7 @@ export async function GET() {
           console.log(`Created new employee: ${cleanUsername}, active: ${!isFired}`)
         }
       } else {
-        // ВАЖНО: Обновляем существующего сотрудника
-        // Обновляем статус active на основе наличия слова УВОЛЕН
+        // Обновляем существующего сотрудника
         const { error: updateError } = await supabase
           .from('employees')
           .update({ 
@@ -302,7 +292,6 @@ export async function GET() {
             let employeeTransactionCount = 0
             
             for (const row of rows) {
-              // Проверяем что есть хотя бы казино
               if (row[0]) {
                 const depositGbp = parseNumberValue(row[1])
                 const withdrawalGbp = parseNumberValue(row[2])
@@ -421,7 +410,6 @@ export async function GET() {
           const casino = String(row[0]).trim()
           const cardsForCasino: string[] = []
           
-          // Собираем все карты для этого казино (начиная с колонки B)
           for (let i = 1; i < row.length; i++) {
             if (row[i]) {
               const cardNumber = extractCardNumber(row[i])
@@ -442,9 +430,8 @@ export async function GET() {
       results.stats.themesProcessed = usedCardsInThemes.size
       console.log(`Total unique cards in themes: ${usedCardsInThemes.size}`)
       
-      // Обновляем статусы карт на основе themes
+      // Обновляем статусы карт
       for (const cardNumber of usedCardsInThemes) {
-        // Находим в каком казино используется эта карта
         let assignedCasino = ''
         for (const [casino, cards] of Object.entries(results.cardThemes)) {
           if (cards.includes(cardNumber)) {
@@ -453,7 +440,6 @@ export async function GET() {
           }
         }
         
-        // Обновляем статус карты в базе данных
         await supabase
           .from('cards')
           .update({ 
@@ -548,7 +534,6 @@ export async function GET() {
         if (row[0]) {
           const cardNumber = extractCardNumber(row[0])
           if (cardNumber && cardNumber.length >= 15) {
-            // Проверяем, использована ли карта в themes
             const isUsed = results.cardThemes && Object.values(results.cardThemes).some(
               (casinoCards: any) => casinoCards.includes(cardNumber)
             )
@@ -574,22 +559,16 @@ export async function GET() {
     }
     
     // Проверяем финальные данные в БД
-    const { data: finalTransactions, error: finalError } = await supabase
+    const { data: finalTransactions } = await supabase
       .from('transactions')
       .select('gross_profit_usd')
       .eq('month', monthCode)
-    
-    if (finalError) {
-      console.error('Error fetching final transactions:', finalError)
-    }
     
     const dbTotalGross = finalTransactions?.reduce((sum, t) => sum + (t.gross_profit_usd || 0), 0) || 0
     
     console.log(`\n=== FINAL VERIFICATION ===`)
     console.log(`Calculated gross: $${calculatedTotalGross.toFixed(2)}`)
     console.log(`Database gross: $${dbTotalGross.toFixed(2)}`)
-    console.log(`Difference: $${(calculatedTotalGross - dbTotalGross).toFixed(2)}`)
-    console.log(`Cards with themes: ${results.stats.themesProcessed}`)
     console.log(`Active employees: ${results.stats.activeEmployees}`)
     console.log(`Fired employees: ${results.stats.firedEmployees}`)
     
@@ -602,7 +581,6 @@ export async function GET() {
       .from('employees')
       .select('*', { count: 'exact', head: true })
     
-    // Используем значение из БД как финальное
     results.stats.totalGross = dbTotalGross
     results.stats.totalNet = dbTotalGross - results.stats.totalExpenses
     
@@ -620,7 +598,7 @@ export async function GET() {
       cardThemes: results.cardThemes,
       errors: results.errors,
       employeesList: results.employeesList,
-      message: `Обработано ${results.stats.employeesProcessed} сотрудников (активных: ${results.stats.activeEmployees}, уволенных: ${results.stats.firedEmployees}), ${results.stats.transactionsCreated} транзакций, ${results.stats.themesProcessed} карт с темами`
+      message: `Обработано ${results.stats.employeesProcessed} сотрудников (активных: ${results.stats.activeEmployees}, уволенных: ${results.stats.firedEmployees}), ${results.stats.transactionsCreated} транзакций`
     })
     
   } catch (error: any) {
