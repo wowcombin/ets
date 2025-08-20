@@ -98,6 +98,8 @@ export default function DashboardPage() {
   const [showAllTransactions, setShowAllTransactions] = useState(false)
   const [showAllSalaries, setShowAllSalaries] = useState(false)
   const [activeTab, setActiveTab] = useState<'overview' | 'employees' | 'casinos' | 'cards'>('overview')
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null)
+  const [lastLoadTime, setLastLoadTime] = useState<Date | null>(null)
   
   const currentMonth = new Date().toLocaleDateString('ru-RU', { 
     month: 'long', 
@@ -113,6 +115,7 @@ export default function DashboardPage() {
       
       if (result.success) {
         setData(result.data)
+        setLastLoadTime(new Date())
       } else {
         setError(result.error || 'Ошибка загрузки данных')
       }
@@ -134,8 +137,9 @@ export default function DashboardPage() {
       const result = await response.json()
       
       if (result.success) {
+        setLastSyncTime(new Date())
         await loadData()
-        alert(`✅ Синхронизация завершена!\n\nОбработано:\n• ${result.stats.employeesProcessed} сотрудников\n• ${result.stats.transactionsCreated} транзакций\n• ${result.stats.cardsProcessed} карт\n\nОбщий брутто: $${result.stats.totalGross?.toFixed(2)}`)
+        alert(`✅ Синхронизация завершена!\n\nОбработано:\n• ${result.stats.employeesProcessed} сотрудников\n• ${result.stats.transactionsCreated} транзакций\n• ${result.stats.cardsProcessed} карт\n\nОбщий брутто: ${result.stats.totalGross?.toFixed(2)}`)
       } else {
         setError(result.error || 'Ошибка синхронизации')
       }
@@ -217,6 +221,11 @@ export default function DashboardPage() {
                   <span className="ml-3 text-yellow-400 flex items-center">
                     <Trophy className="w-4 h-4 mr-1" />
                     Лидер: {leaderSalary.employee?.username}
+                  </span>
+                )}
+                {lastSyncTime && (
+                  <span className="ml-3 text-gray-500 text-xs">
+                    • Синхронизация: {lastSyncTime.toLocaleTimeString('ru-RU')}
                   </span>
                 )}
               </p>
@@ -602,10 +611,15 @@ export default function DashboardPage() {
               <div className="bg-gray-800 border border-gray-700 rounded-lg">
                 <div className="p-6 border-b border-gray-700">
                   <div className="flex justify-between items-center">
-                    <h2 className="text-xl font-bold flex items-center gap-2">
-                      <TrendingUp className="w-5 h-5" />
-                      Транзакции ({data.transactions.length})
-                    </h2>
+                    <div>
+                      <h2 className="text-xl font-bold flex items-center gap-2">
+                        <TrendingUp className="w-5 h-5" />
+                        Транзакции ({data.transactions.length})
+                      </h2>
+                      <p className="text-sm text-gray-400 mt-1">
+                        Последние транзакции отображаются первыми
+                      </p>
+                    </div>
                     <button
                       onClick={() => setShowAllTransactions(!showAllTransactions)}
                       className="text-blue-400 hover:text-blue-300 flex items-center gap-1"
@@ -616,10 +630,30 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <div className="p-6">
+                  {/* Показываем 3 самые последние транзакции с выделением */}
+                  {data.transactions.slice(0, 3).length > 0 && (
+                    <div className="mb-4 p-3 bg-blue-900/20 border border-blue-700 rounded-lg">
+                      <p className="text-sm text-blue-400 mb-2 font-semibold">🆕 Последние добавленные транзакции:</p>
+                      <div className="space-y-2">
+                        {data.transactions.slice(0, 3).map((t, idx) => (
+                          <div key={t.id} className="text-sm text-gray-300">
+                            <span className="text-blue-400">#{idx + 1}</span> • 
+                            <span className="font-medium">{t.employee?.username}</span> • 
+                            <span>{t.casino_name}</span> • 
+                            <span className={t.gross_profit_usd >= 0 ? 'text-green-400' : 'text-red-400'}>
+                              ${t.gross_profit_usd.toFixed(2)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead>
                         <tr className="border-b border-gray-700">
+                          <th className="text-left py-3 px-4 text-gray-400">#</th>
                           <th className="text-left py-3 px-4 text-gray-400">Сотрудник</th>
                           <th className="text-left py-3 px-4 text-gray-400">Казино</th>
                           <th className="text-right py-3 px-4 text-gray-400">Депозит</th>
@@ -629,8 +663,14 @@ export default function DashboardPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {(showAllTransactions ? data.transactions : data.transactions.slice(0, 10)).map((transaction) => (
-                          <tr key={transaction.id} className="border-b border-gray-700/50 hover:bg-gray-700/30">
+                        {(showAllTransactions ? data.transactions : data.transactions.slice(0, 10)).map((transaction, index) => (
+                          <tr key={transaction.id} className={`border-b border-gray-700/50 hover:bg-gray-700/30 ${
+                            index < 3 ? 'bg-blue-900/10' : ''
+                          }`}>
+                            <td className="py-3 px-4 text-gray-500">
+                              {index + 1}
+                              {index < 3 && <span className="ml-1 text-blue-400">🆕</span>}
+                            </td>
                             <td className="py-3 px-4 font-medium">{transaction.employee?.username || 'Unknown'}</td>
                             <td className="py-3 px-4">{transaction.casino_name}</td>
                             <td className="py-3 px-4 text-right">£{transaction.deposit_gbp.toFixed(2)}</td>
