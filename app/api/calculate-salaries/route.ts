@@ -175,7 +175,7 @@ export async function GET() {
           
           // ВАЖНО: Бонус $200 ТОЛЬКО если брутто >= $200
           // Проверяем что брутто сотрудника действительно >= 200
-          if (empGross >= 200) {
+          if (empGross >= 2000) {
             bonus = 200
             console.log(`  ${employee.username}: gross $${empGross.toFixed(2)} >= $200, ADDING bonus $200`)
           } else {
