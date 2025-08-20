@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase/client'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 function getCurrentMonthCode(): string {
   const now = new Date()
@@ -53,22 +54,21 @@ export async function GET() {
       })
     }
     
-    // Получаем всех АКТИВНЫХ сотрудников (включая менеджеров)
+    // Получаем ВСЕХ сотрудников (включая уволенных)
     const { data: employees, error: empError } = await supabase
       .from('employees')
       .select('*')
-      .eq('is_active', true)
     
     if (empError) throw empError
     
     if (!employees || employees.length === 0) {
       return NextResponse.json({
         success: false,
-        error: 'No active employees found'
+        error: 'No employees found'
       })
     }
     
-    console.log(`Found ${employees.length} active employees`)
+    console.log(`Found ${employees.length} total employees`)
     
     // Группируем транзакции по сотрудникам
     const employeeTransactions = new Map()
@@ -79,15 +79,20 @@ export async function GET() {
       employeeTransactions.get(transaction.employee_id).push(transaction)
     }
     
-    // Находим лидера месяца (самая большая транзакция)
+    // Находим лидера месяца (самая большая ЕДИНИЧНАЯ транзакция)
     let maxGrossProfit = 0
     let maxTransaction = null
+    let leaderEmployeeId = null
+    
     for (const transaction of allTransactions) {
       if (transaction.gross_profit_usd > maxGrossProfit) {
         maxGrossProfit = transaction.gross_profit_usd
         maxTransaction = transaction
+        leaderEmployeeId = transaction.employee_id
       }
     }
+    
+    console.log(`Leader transaction: $${maxGrossProfit.toFixed(2)}, employee_id: ${leaderEmployeeId}`)
     
     // Рассчитываем общий брутто и нетто
     const totalGross = allTransactions.reduce((sum, t) => sum + (parseFloat(t.gross_profit_usd) || 0), 0)
@@ -112,7 +117,7 @@ export async function GET() {
     const salariesToInsert = []
     const salaryDetails = []
     
-    // Рассчитываем зарплаты для КАЖДОГО сотрудника
+    // Рассчитываем зарплаты для КАЖДОГО сотрудника (включая уволенных с транзакциями)
     for (const employee of employees) {
       const empTransactions = employeeTransactions.get(employee.id) || []
       const empGross = empTransactions.reduce((sum: number, t: any) => sum + (parseFloat(t.gross_profit_usd) || 0), 0)
@@ -152,16 +157,18 @@ export async function GET() {
         if (empGross > 0) {
           baseSalary = empGross * 0.1
           
-          // Бонус ТОЛЬКО если брутто больше $200
+          // ВАЖНО: Бонус $200 ТОЛЬКО если брутто больше $200
           if (empGross > 200) {
             bonus = 200
-            console.log(`${employee.username}: bonus $200 (gross: ${empGross.toFixed(2)})`)
+            console.log(`${employee.username}: gross $${empGross.toFixed(2)} > $200, adding bonus $200`)
+          } else {
+            console.log(`${employee.username}: gross $${empGross.toFixed(2)} <= $200, NO bonus`)
           }
           
           // Бонус лидеру месяца (за самую большую транзакцию)
-          if (maxTransaction && maxTransaction.employee_id === employee.id) {
+          if (leaderEmployeeId && leaderEmployeeId === employee.id) {
             leaderBonus = maxGrossProfit * 0.1
-            console.log(`${employee.username}: leader bonus ${leaderBonus.toFixed(2)}`)
+            console.log(`${employee.username}: LEADER bonus ${leaderBonus.toFixed(2)} (10% of max transaction $${maxGrossProfit.toFixed(2)})`)
           }
         }
       }
@@ -169,6 +176,7 @@ export async function GET() {
       const totalSalary = baseSalary + bonus + leaderBonus
       
       // Сохраняем зарплату для ВСЕХ у кого она > 0 ИЛИ кто является менеджером
+      // Это включает уволенных сотрудников, если у них есть транзакции
       if (totalSalary > 0 || employee.is_manager) {
         salariesToInsert.push({
           employee_id: employee.id,
@@ -183,6 +191,7 @@ export async function GET() {
         salaryDetails.push({
           username: employee.username,
           is_manager: employee.is_manager,
+          is_active: employee.is_active,
           base: baseSalary.toFixed(2),
           bonus: bonus.toFixed(2),
           leader: leaderBonus.toFixed(2),
@@ -206,6 +215,9 @@ export async function GET() {
       console.log(`Successfully calculated ${salariesToInsert.length} salaries`)
     }
     
+    // Находим информацию о лидере для ответа
+    const leaderEmployee = leaderEmployeeId ? employees.find(e => e.id === leaderEmployeeId) : null
+    
     return NextResponse.json({
       success: true,
       month: monthCode,
@@ -214,10 +226,11 @@ export async function GET() {
         totalNet: totalNet.toFixed(2),
         totalExpenses: totalExpenses.toFixed(2),
         maxTransaction: maxGrossProfit.toFixed(2),
-        leaderEmployee: maxTransaction ? employees.find(e => e.id === maxTransaction.employee_id)?.username : null,
+        leaderEmployee: leaderEmployee?.username || null,
         salariesCreated: salariesToInsert.length,
         totalEmployees: employees.length,
         activeEmployees: employees.filter(e => e.is_active).length,
+        firedEmployees: employees.filter(e => !e.is_active).length,
         totalTransactions: allTransactions.length
       },
       salaries: salaryDetails
