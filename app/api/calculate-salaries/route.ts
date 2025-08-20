@@ -152,14 +152,16 @@ export async function GET() {
         if (empGross > 0) {
           baseSalary = empGross * 0.1
           
-          // Бонус за результат > $200
+          // Бонус ТОЛЬКО если брутто больше $200
           if (empGross > 200) {
             bonus = 200
+            console.log(`${employee.username}: bonus $200 (gross: ${empGross.toFixed(2)})`)
           }
           
           // Бонус лидеру месяца (за самую большую транзакцию)
           if (maxTransaction && maxTransaction.employee_id === employee.id) {
             leaderBonus = maxGrossProfit * 0.1
+            console.log(`${employee.username}: leader bonus ${leaderBonus.toFixed(2)}`)
           }
         }
       }
