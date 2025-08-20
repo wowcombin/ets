@@ -27,19 +27,37 @@ export async function GET() {
     const activeEmployees = employees?.filter(e => !e.username.includes('УВОЛЕН') && e.is_active !== false) || []
     const firedEmployees = employees?.filter(e => e.username.includes('УВОЛЕН') || e.is_active === false) || []
     
-    // Получаем ВСЕ транзакции за текущий месяц БЕЗ ЛИМИТА
-    const { data: transactions, error: transError } = await supabase
-      .from('transactions')
-      .select('*, employee:employees(username, is_manager)')
-      .eq('month', currentMonth)
-      .limit(10000) // Явно указываем большой лимит
+    // ВАЖНО: Получаем ВСЕ транзакции используя пагинацию
+    console.log('Fetching ALL transactions with pagination...')
+    let allTransactions: any[] = []
+    let from = 0
+    const limit = 1000
+    let hasMore = true
     
-    if (transError) {
-      console.error('Error loading transactions:', transError)
-      throw transError
+    while (hasMore) {
+      const { data: batch, error: batchError } = await supabase
+        .from('transactions')
+        .select('*, employee:employees(username, is_manager)')
+        .eq('month', currentMonth)
+        .range(from, from + limit - 1)
+        .order('created_at', { ascending: true })
+      
+      if (batchError) {
+        console.error(`Error fetching batch from ${from}:`, batchError)
+        break
+      }
+      
+      if (batch && batch.length > 0) {
+        allTransactions = [...allTransactions, ...batch]
+        console.log(`Fetched batch: ${from} to ${from + batch.length - 1}, total so far: ${allTransactions.length}`)
+        from += limit
+        hasMore = batch.length === limit
+      } else {
+        hasMore = false
+      }
     }
     
-    console.log(`Found ${transactions?.length || 0} transactions for ${currentMonth}`)
+    console.log(`Total transactions fetched: ${allTransactions.length}`)
     
     // Получаем расходы
     const { data: expenses, error: expError } = await supabase
@@ -64,8 +82,6 @@ export async function GET() {
       throw salError
     }
     
-    console.log(`Found ${salaries?.length || 0} salaries for ${currentMonth}`)
-    
     // Получаем карты
     const { data: cards, error: cardError } = await supabase
       .from('cards')
@@ -77,16 +93,18 @@ export async function GET() {
       throw cardError
     }
     
-    // ВАЖНО: Рассчитываем статистику из ВСЕХ транзакций
+    // Рассчитываем статистику из ВСЕХ транзакций
     let totalGross = 0
     let totalNet = 0
     let totalExpenses = 0
     
-    // Считаем брутто из транзакций
-    if (transactions && transactions.length > 0) {
-      totalGross = transactions.reduce((sum, t) => {
-        return sum + (parseFloat(t.gross_profit_usd) || 0)
+    // Считаем брутто из всех транзакций
+    if (allTransactions && allTransactions.length > 0) {
+      totalGross = allTransactions.reduce((sum, t) => {
+        const profit = parseFloat(t.gross_profit_usd) || 0
+        return sum + profit
       }, 0)
+      console.log(`Calculated gross from ${allTransactions.length} transactions: $${totalGross.toFixed(2)}`)
     }
     
     // Считаем расходы
@@ -100,19 +118,19 @@ export async function GET() {
     
     // Считаем использованные карты из транзакций
     const usedCardNumbers = new Set<string>()
-    transactions?.forEach(t => {
+    allTransactions?.forEach(t => {
       if (t.card_number) {
         usedCardNumbers.add(t.card_number)
       }
     })
     const usedCardCount = usedCardNumbers.size
     
-    console.log(`Stats: Gross=$${totalGross.toFixed(2)}, Net=$${totalNet.toFixed(2)}, Expenses=$${totalExpenses.toFixed(2)}`)
+    console.log(`Final stats: Gross=$${totalGross.toFixed(2)}, Net=$${totalNet.toFixed(2)}, Expenses=$${totalExpenses.toFixed(2)}, Used cards=${usedCardCount}`)
     
     // Группируем статистику по сотрудникам
     const employeeStats = new Map()
     
-    transactions?.forEach(t => {
+    allTransactions?.forEach(t => {
       if (!t.employee_id) return
       
       if (!employeeStats.has(t.employee_id)) {
@@ -150,7 +168,7 @@ export async function GET() {
     // Группируем статистику по казино
     const casinoStats = new Map()
     
-    transactions?.forEach(t => {
+    allTransactions?.forEach(t => {
       if (!t.casino_name) return
       
       if (!casinoStats.has(t.casino_name)) {
@@ -193,7 +211,7 @@ export async function GET() {
       data: {
         employees: activeEmployees,
         firedEmployees,
-        transactions: transactions || [],
+        transactions: allTransactions, // Возвращаем ВСЕ транзакции
         expenses: expenses || [],
         salaries: salaries || [],
         cards: cards || [],
@@ -206,7 +224,7 @@ export async function GET() {
           totalEmployeeCount: employees?.length || 0,
           cardCount: cards?.length || 0,
           usedCardCount,
-          transactionCount: transactions?.length || 0,
+          transactionCount: allTransactions.length,
           salaryCount: salaries?.length || 0,
         },
         employeeStats: employeeStatsArray,
@@ -216,7 +234,7 @@ export async function GET() {
     
     console.log('Dashboard data prepared:', {
       month: currentMonth,
-      transactions: transactions?.length || 0,
+      transactions: allTransactions.length,
       totalGross,
       totalNet,
       salaries: salaries?.length || 0,
