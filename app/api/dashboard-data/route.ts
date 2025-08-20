@@ -27,11 +27,12 @@ export async function GET() {
     const activeEmployees = employees?.filter(e => !e.username.includes('УВОЛЕН') && e.is_active !== false) || []
     const firedEmployees = employees?.filter(e => e.username.includes('УВОЛЕН') || e.is_active === false) || []
     
-    // Получаем ВСЕ транзакции за текущий месяц
+    // Получаем ВСЕ транзакции за текущий месяц БЕЗ ЛИМИТА
     const { data: transactions, error: transError } = await supabase
       .from('transactions')
       .select('*, employee:employees(username, is_manager)')
       .eq('month', currentMonth)
+      .limit(10000) // Явно указываем большой лимит
     
     if (transError) {
       console.error('Error loading transactions:', transError)
