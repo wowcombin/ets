@@ -316,13 +316,13 @@ export async function GET() {
         range: 'REVO UK!A2:E1000',
       })
       
-      const cards = []
+      const cards: any[] = []
       const rows = cardsResponse.data.values || []
       
       rows.forEach(row => {
         if (row[0]) {
           const cardNumber = extractCardNumber(row[0])
-          if (cardNumber?.length >= 15) {
+          if (cardNumber && cardNumber.length >= 15) {
             cards.push({
               card_number: cardNumber,
               status: 'available',
