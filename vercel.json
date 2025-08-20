@@ -2,6 +2,18 @@
   "functions": {
     "app/api/sync-all/route.ts": {
       "maxDuration": 300
+    },
+    "app/api/calculate-salaries/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/cron/route.ts": {
+      "maxDuration": 300
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron",
+      "schedule": "0 */4 * * *"
+    }
+  ]
 }
