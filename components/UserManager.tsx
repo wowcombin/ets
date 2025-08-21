@@ -327,17 +327,17 @@ export default function UserManager({ employees, onUpdate }: UserManagerProps) {
       </Card>
 
       {/* Inactive Employees */}
-      {inactiveEmployees.length > 0 && (
+      {employees.filter(e => !e.is_active || e.username.includes('УВОЛЕН')).length > 0 && (
         <Card className="bg-gray-800 border-gray-700">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
               <UserX className="w-5 h-5 text-red-400" />
-              Уволенные сотрудники ({inactiveEmployees.length})
+              Уволенные сотрудники ({employees.filter(e => !e.is_active || e.username.includes('УВОЛЕН')).length})
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {inactiveEmployees.map((employee) => (
+              {employees.filter(e => !e.is_active || e.username.includes('УВОЛЕН')).map((employee) => (
                 <div key={employee.id} className="bg-red-900/10 border border-red-800/30 rounded-lg p-4 opacity-75">
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-3">
