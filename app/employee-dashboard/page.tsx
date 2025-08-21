@@ -107,12 +107,29 @@ export default function EmployeeDashboard() {
     year: 'numeric' 
   })
 
-  const loadData = async (showLoader = true) => {
+  const loadData = async (showLoader = true, triggerSync = false) => {
     if (showLoader) {
       setLoading(true)
     }
     setError(null)
     try {
+      // Если запрошена синхронизация - сначала синхронизируем данные
+      if (triggerSync) {
+        console.log('Triggering sync before loading data...')
+        try {
+          await fetch('/api/auto-sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          })
+          console.log('Sync completed, loading fresh data...')
+          // Небольшая задержка для завершения синхронизации
+          await new Promise(resolve => setTimeout(resolve, 2000))
+        } catch (syncError) {
+          console.error('Sync error:', syncError)
+          // Продолжаем загрузку даже если синхронизация не удалась
+        }
+      }
+      
       const response = await fetch('/api/employee-data', {
         cache: 'no-store',
         headers: {
@@ -156,9 +173,17 @@ export default function EmployeeDashboard() {
     // Первая загрузка с показом лоадера
     loadData(true)
     
-    // Автообновление каждые 5 минут без показа лоадера
+    // Автообновление каждые 5 минут с синхронизацией каждые 10 минут
+    let syncCounter = 0
     const interval = setInterval(() => {
-      loadData(false) // false = не показывать лоадер при фоновых обновлениях
+      syncCounter++
+      // Каждое второе обновление (каждые 10 минут) запускаем синхронизацию
+      const shouldSync = syncCounter % 2 === 0
+      loadData(false, shouldSync) // false = не показывать лоадер, shouldSync = синхронизация каждые 10 мин
+      
+      if (shouldSync) {
+        console.log('Auto sync triggered at:', new Date().toLocaleTimeString())
+      }
     }, 300000) // 300000 мс = 5 минут
     
     return () => clearInterval(interval)
@@ -225,7 +250,7 @@ export default function EmployeeDashboard() {
             
             <div className="flex gap-3">
               <Button
-                onClick={() => loadData(true)}
+                onClick={() => loadData(true, true)} // triggerSync = true
                 variant="outline"
                 className="text-green-400 border-green-400 hover:bg-green-900/20"
                 disabled={loading}
