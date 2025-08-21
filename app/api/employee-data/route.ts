@@ -81,19 +81,17 @@ export async function GET() {
       let calculatedSalary = null
       if (!empSalary && totalEmpGross > 0) {
         const baseSalary = totalEmpGross * 0.1 // 10% от брутто
-        const bonus = totalEmpGross >= 200 ? 200 : 0 // $200 если брутто >= $200
+        const bonus = totalEmpGross >= 2000 ? 200 : 0 // $200 ТОЛЬКО если брутто >= $2000
         
-        // Находим максимальную транзакцию для бонуса лидера
+        // Находим максимальную транзакцию для бонуса лидера (пока для всех, позже определим одного лидера)
         const maxTransaction = Math.max(...empTransactions.map(t => t.gross_profit_usd || 0))
-        const leaderBonus = maxTransaction > 0 ? maxTransaction * 0.1 : 0 // 10% от макс транзакции
-        
-        const totalSalary = baseSalary + bonus + leaderBonus
         
         calculatedSalary = {
           base_salary: baseSalary,
           bonus: bonus,
-          leader_bonus: leaderBonus,
-          total_salary: totalSalary,
+          leader_bonus: 0, // Будет установлен позже только для одного лидера
+          max_transaction: maxTransaction,
+          total_salary: baseSalary + bonus,
           is_paid: false,
           calculated_on_fly: true
         }
@@ -123,6 +121,29 @@ export async function GET() {
       const salaryB = b.salary?.total_salary || 0
       return salaryB - salaryA
     })
+    
+    // Определяем лидера месяца (один сотрудник с самой большой транзакцией)
+    let monthLeader = null
+    let maxTransactionValue = 0
+    
+    employeeStats.forEach(emp => {
+      const empMaxTransaction = emp.salary?.max_transaction || 0
+      if (empMaxTransaction > maxTransactionValue) {
+        maxTransactionValue = empMaxTransaction
+        monthLeader = emp
+      }
+    })
+    
+    // Устанавливаем бонус лидера только для одного сотрудника
+    if (monthLeader && maxTransactionValue > 0) {
+      const leaderBonus = maxTransactionValue * 0.2 // 20% от самой большой транзакции
+      if (monthLeader.salary) {
+        monthLeader.salary.leader_bonus = leaderBonus
+        monthLeader.salary.total_salary = (monthLeader.salary.base_salary || 0) + (monthLeader.salary.bonus || 0) + leaderBonus
+        monthLeader.is_month_leader = true
+      }
+      console.log(`Month leader: ${monthLeader.username} with transaction $${maxTransactionValue}, bonus: $${leaderBonus}`)
+    }
     
     // Устанавливаем ранги после сортировки по зарплате
     employeeStats.forEach((emp, index) => {

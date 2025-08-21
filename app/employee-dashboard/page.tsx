@@ -315,7 +315,7 @@ export default function EmployeeDashboard() {
                         +${myStats.salary.bonus?.toFixed(2) || '0.00'}
                       </div>
                       <p className="text-sm text-gray-400">Бонус $200</p>
-                      <p className="text-xs text-gray-500">За брутто ≥ $200</p>
+                      <p className="text-xs text-gray-500">За план ≥ $2000 брутто</p>
                     </div>
                   )}
                     
@@ -325,8 +325,8 @@ export default function EmployeeDashboard() {
                         <Trophy className="w-5 h-5" />
                         +${myStats.salary.leader_bonus?.toFixed(2) || '0.00'}
                       </div>
-                      <p className="text-sm text-gray-400">Бонус лидера</p>
-                      <p className="text-xs text-gray-500">10% от макс. транзакции</p>
+                      <p className="text-sm text-gray-400">🏆 ЛИДЕР МЕСЯЦА</p>
+                      <p className="text-xs text-gray-500">20% от самой большой транзакции</p>
                     </div>
                   )}
                   </div>
@@ -544,11 +544,18 @@ export default function EmployeeDashboard() {
                     <div className="text-sm text-gray-300 space-y-1">
                       <div>🎯 {leader.transactionCount} транзакций</div>
                       <div>🏢 {leader.casinoCount} казино</div>
-                      {leader.salary?.leader_bonus > 0 && (
-                        <div className="text-yellow-400 font-bold">
-                          👑 Лидер месяца!
-                        </div>
-                      )}
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {(leader.salary?.bonus || 0) > 0 && (
+                          <span className="text-xs bg-green-600 text-green-100 px-2 py-1 rounded-full">
+                            💰 $200 бонус
+                          </span>
+                        )}
+                        {(leader.salary?.leader_bonus || 0) > 0 && (
+                          <span className="text-xs bg-yellow-600 text-yellow-100 px-2 py-1 rounded-full">
+                            🏆 ЛИДЕР МЕСЯЦА
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -606,8 +613,11 @@ export default function EmployeeDashboard() {
                           {employee.username === data.user.username && (
                             <span className="text-xs bg-blue-600 text-blue-100 px-2 py-1 rounded-full">ВЫ</span>
                           )}
-                          {employee.salary?.leader_bonus > 0 && (
-                            <span className="text-xs bg-yellow-600 text-yellow-100 px-2 py-1 rounded-full">ЛИДЕР</span>
+                          {(employee.salary?.bonus || 0) > 0 && (
+                            <span className="text-xs bg-green-600 text-green-100 px-2 py-1 rounded-full">$200</span>
+                          )}
+                          {(employee.salary?.leader_bonus || 0) > 0 && (
+                            <span className="text-xs bg-yellow-600 text-yellow-100 px-2 py-1 rounded-full">🏆 ЛИДЕР</span>
                           )}
                         </div>
                       </td>
