@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { 
   RefreshCw, 
   DollarSign, 
@@ -103,6 +104,8 @@ export default function DashboardPage() {
   const [showAllSalaries, setShowAllSalaries] = useState(false)
   const [activeTab, setActiveTab] = useState<'overview' | 'employees' | 'casinos' | 'cards'>('overview')
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null)
+  const [user, setUser] = useState<any>(null)
+  const router = useRouter()
   
   const currentMonth = new Date().toLocaleDateString('ru-RU', { 
     month: 'long', 
@@ -174,10 +177,35 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
-    loadData()
-    const interval = setInterval(loadData, 60000)
-    return () => clearInterval(interval)
-  }, [])
+    checkUserAccess()
+  }, [router])
+  
+  const checkUserAccess = async () => {
+    try {
+      const response = await fetch('/api/auth/me')
+      const result = await response.json()
+      
+      if (!result.success) {
+        router.push('/login')
+        return
+      }
+      
+      setUser(result.user)
+      
+      // Проверяем права доступа - только менеджеры могут заходить в dashboard
+      if (!result.user.is_manager) {
+        router.push('/employee-dashboard')
+        return
+      }
+      
+      // Если все ок - загружаем данные
+      loadData()
+      const interval = setInterval(loadData, 60000)
+      return () => clearInterval(interval)
+    } catch (error) {
+      router.push('/login')
+    }
+  }
 
   if (loading && !data) {
     return (

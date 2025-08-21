@@ -9,12 +9,16 @@ import {
   Calendar,
   User,
   LogOut,
-  Home,
   Wallet,
   PieChart,
   Crown,
   Medal,
-  Award
+  Award,
+  Activity,
+  Target,
+  Zap,
+  Star,
+  RefreshCw
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -117,7 +121,7 @@ export default function EmployeeDashboard() {
 
   useEffect(() => {
     loadData()
-    const interval = setInterval(loadData, 60000) // Обновляем каждую минуту
+    const interval = setInterval(loadData, 30000) // Обновляем каждые 30 секунд
     return () => clearInterval(interval)
   }, [router])
 
@@ -125,8 +129,8 @@ export default function EmployeeDashboard() {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-900">
         <div className="text-center">
-          <TrendingUp className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-500" />
-          <p className="text-gray-400">Загрузка данных...</p>
+          <Zap className="w-8 h-8 animate-pulse mx-auto mb-4 text-blue-500" />
+          <p className="text-gray-400">Загружаем вашу статистику...</p>
         </div>
       </div>
     )
@@ -149,21 +153,25 @@ export default function EmployeeDashboard() {
   const topThree = data?.leaderboard.slice(0, 3) || []
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900/20 to-purple-900/20 text-white">
       {/* Header */}
-      <header className="bg-gray-800 border-b border-gray-700 sticky top-0 z-10">
+      <header className="bg-gray-800/90 backdrop-blur border-b border-gray-700 sticky top-0 z-10">
         <div className="container mx-auto px-6 py-4">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-2xl font-bold text-white">
-                Дашборд сотрудника
+              <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+                <Zap className="w-6 h-6 text-blue-400" />
+                Player Dashboard
               </h1>
               <p className="text-sm text-gray-400 mt-1 flex items-center">
                 <Calendar className="w-4 h-4 mr-1" />
                 {currentMonth}
                 <span className="ml-3 text-blue-400">
-                  Привет, {data?.user.username}!
+                  Добро пожаловать, {data?.user.username}!
                 </span>
+                {loading && (
+                  <RefreshCw className="w-3 h-3 animate-spin ml-2 text-green-400" />
+                )}
               </p>
             </div>
             
@@ -176,17 +184,6 @@ export default function EmployeeDashboard() {
                 <User className="w-4 h-4 mr-2" />
                 Профиль
               </Button>
-              
-              {data?.user.is_manager && (
-                <Button
-                  onClick={() => router.push('/dashboard')}
-                  variant="outline"
-                  className="text-green-400 border-green-400 hover:bg-green-900/20"
-                >
-                  <Home className="w-4 h-4 mr-2" />
-                  Админ панель
-                </Button>
-              )}
               
               <Button
                 onClick={logout}
@@ -202,126 +199,88 @@ export default function EmployeeDashboard() {
       </header>
 
       <div className="container mx-auto px-6 py-8">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card className="bg-gray-800 border-gray-700">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-green-400" />
-                Общий профит
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-green-400">
-                ${(data?.stats.totalGross || 0).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </div>
-              <p className="text-sm text-gray-400 mt-2">
-                Брутто профит всех сотрудников
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gray-800 border-gray-700">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
-                <Users className="w-5 h-5 text-blue-400" />
-                Активных сотрудников
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-blue-400">
-                {data?.leaderboard.length || 0}
-              </div>
-              <p className="text-sm text-gray-400 mt-2">
-                Работают в этом месяце
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gray-800 border-gray-700">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
-                <PieChart className="w-5 h-5 text-purple-400" />
-                Казино
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-purple-400">
-                {data?.casinoStats.length || 0}
-              </div>
-              <p className="text-sm text-gray-400 mt-2">
-                Активных площадок
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* My Stats */}
+        {/* My Performance Card */}
         {myStats && (
-          <Card className="bg-gradient-to-r from-blue-900/20 to-purple-900/20 border-blue-700 mb-8">
+          <Card className="bg-gradient-to-r from-blue-900/30 to-purple-900/30 border-blue-500/50 mb-8 shadow-xl">
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
-                <User className="w-5 h-5 text-blue-400" />
-                Моя статистика
+                <Star className="w-6 h-6 text-yellow-400" />
+                Ваши достижения
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-yellow-400 flex items-center justify-center gap-2">
-                    #{myStats?.rank || 0}
-                    {myStats?.rank === 1 && <Crown className="w-5 h-5" />}
-                    {myStats?.rank === 2 && <Medal className="w-5 h-5" />}
-                    {myStats?.rank === 3 && <Award className="w-5 h-5" />}
+                  <div className="text-3xl font-bold text-yellow-400 flex items-center justify-center gap-2 mb-2">
+                    #{myStats.rank}
+                    {myStats.rank === 1 && <Crown className="w-6 h-6" />}
+                    {myStats.rank === 2 && <Medal className="w-6 h-6" />}
+                    {myStats.rank === 3 && <Award className="w-6 h-6" />}
                   </div>
-                  <p className="text-sm text-gray-400">Место</p>
+                  <p className="text-sm text-gray-300">Место в рейтинге</p>
                 </div>
+                
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-green-400">
-                    ${myStats?.salary?.total_salary?.toFixed(2) || '0.00'}
+                  <div className="text-3xl font-bold text-green-400 mb-2">
+                    ${myStats.totalGross.toFixed(2)}
                   </div>
-                  <p className="text-sm text-gray-400">Общая зарплата</p>
+                  <p className="text-sm text-gray-300">Ваш профит</p>
                 </div>
+                
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-400">
-                    ${myStats?.totalGross.toFixed(2) || '0.00'}
+                  <div className="text-3xl font-bold text-blue-400 mb-2">
+                    {myStats.transactionCount}
                   </div>
-                  <p className="text-sm text-gray-400">Мой профит</p>
+                  <p className="text-sm text-gray-300">Транзакций</p>
                 </div>
+                
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-400">
-                    {myStats?.transactionCount || 0}
+                  <div className="text-3xl font-bold text-purple-400 mb-2">
+                    {myStats.casinoCount}
                   </div>
-                  <p className="text-sm text-gray-400">Транзакций</p>
-                </div>
-                <div className="text-center">
-                  <div className={`text-2xl font-bold ${myStats?.salary?.is_paid ? 'text-green-400' : 'text-yellow-400'}`}>
-                    {myStats?.salary?.is_paid ? 'Оплачено' : 'Ожидает'}
-                  </div>
-                  <p className="text-sm text-gray-400">Статус выплаты</p>
+                  <p className="text-sm text-gray-300">Казино</p>
                 </div>
               </div>
               
-              {((myStats?.salary?.bonus || 0) > 0 || (myStats?.salary?.leader_bonus || 0) > 0) && (
-                <div className="mt-4 pt-4 border-t border-gray-700">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {(myStats?.salary?.bonus || 0) > 0 && (
+              {myStats.salary && (
+                <div className="mt-6 pt-6 border-t border-gray-600">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="text-center">
+                      <div className="text-xl font-bold text-green-400">
+                        ${myStats.salary.total_salary.toFixed(2)}
+                      </div>
+                      <p className="text-sm text-gray-300">Общая зарплата</p>
+                    </div>
+                    
+                    {myStats.salary.bonus > 0 && (
                       <div className="text-center">
                         <div className="text-xl font-bold text-green-400">
-                          +${myStats?.salary?.bonus?.toFixed(2) || '0.00'}
+                          +${myStats.salary.bonus.toFixed(2)}
                         </div>
-                        <p className="text-sm text-gray-400">Бонус за результат</p>
+                        <p className="text-sm text-gray-300">Бонус за результат</p>
                       </div>
                     )}
-                    {(myStats?.salary?.leader_bonus || 0) > 0 && (
+                    
+                    {myStats.salary.leader_bonus > 0 && (
                       <div className="text-center">
                         <div className="text-xl font-bold text-yellow-400 flex items-center justify-center gap-2">
-                          <Trophy className="w-4 h-4" />
-                          +${myStats?.salary?.leader_bonus?.toFixed(2) || '0.00'}
+                          <Trophy className="w-5 h-5" />
+                          +${myStats.salary.leader_bonus.toFixed(2)}
                         </div>
-                        <p className="text-sm text-gray-400">Лидер месяца</p>
+                        <p className="text-sm text-gray-300">Лидер месяца!</p>
                       </div>
                     )}
+                  </div>
+                  
+                  <div className="text-center mt-4">
+                    <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium ${
+                      myStats.salary.is_paid 
+                        ? 'bg-green-900/30 text-green-400 border border-green-600' 
+                        : 'bg-yellow-900/30 text-yellow-400 border border-yellow-600'
+                    }`}>
+                      <Wallet className="w-4 h-4" />
+                      {myStats.salary.is_paid ? 'Зарплата выплачена' : 'Ожидает выплаты'}
+                    </div>
                   </div>
                 </div>
               )}
@@ -329,12 +288,65 @@ export default function EmployeeDashboard() {
           </Card>
         )}
 
-        {/* Top 3 */}
-        <Card className="bg-gray-800 border-gray-700 mb-8">
+        {/* Team Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card className="bg-gray-800/50 border-gray-700">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400">Общий профит команды</p>
+                  <p className="text-2xl font-bold text-green-400">
+                    ${(data?.stats.totalGross || 0).toLocaleString('ru-RU', { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+                <DollarSign className="w-8 h-8 text-green-400" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gray-800/50 border-gray-700">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400">Активных игроков</p>
+                  <p className="text-2xl font-bold text-blue-400">{data?.stats.employeeCount}</p>
+                </div>
+                <Users className="w-8 h-8 text-blue-400" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gray-800/50 border-gray-700">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400">Всего транзакций</p>
+                  <p className="text-2xl font-bold text-purple-400">{data?.stats.transactionCount}</p>
+                </div>
+                <Activity className="w-8 h-8 text-purple-400" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gray-800/50 border-gray-700">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400">Активных казино</p>
+                  <p className="text-2xl font-bold text-orange-400">{data?.stats.casinoCount}</p>
+                </div>
+                <Target className="w-8 h-8 text-orange-400" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Top 3 Leaders */}
+        <Card className="bg-gray-800/50 border-gray-700 mb-8">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
               <Trophy className="w-5 h-5 text-yellow-400" />
-              Топ-3 лидера месяца
+              🏆 Топ-3 лидера месяца
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -342,44 +354,39 @@ export default function EmployeeDashboard() {
               {topThree.map((leader, index) => (
                 <div
                   key={leader.username}
-                  className={`relative p-4 rounded-lg border-2 ${
+                  className={`relative p-6 rounded-xl border-2 ${
                     index === 0
-                      ? 'border-yellow-500 bg-yellow-900/10'
+                      ? 'border-yellow-500 bg-gradient-to-br from-yellow-900/20 to-orange-900/20'
                       : index === 1
-                      ? 'border-gray-400 bg-gray-900/10'
-                      : 'border-orange-500 bg-orange-900/10'
+                      ? 'border-gray-400 bg-gradient-to-br from-gray-900/20 to-blue-900/20'
+                      : 'border-orange-500 bg-gradient-to-br from-orange-900/20 to-red-900/20'
                   }`}
                 >
                   <div className="text-center">
-                    <div className="flex items-center justify-center mb-3">
-                      {index === 0 && <Crown className="w-8 h-8 text-yellow-400" />}
-                      {index === 1 && <Medal className="w-8 h-8 text-gray-400" />}
-                      {index === 2 && <Award className="w-8 h-8 text-orange-400" />}
+                    <div className="flex items-center justify-center mb-4">
+                      {index === 0 && <Crown className="w-12 h-12 text-yellow-400" />}
+                      {index === 1 && <Medal className="w-12 h-12 text-gray-400" />}
+                      {index === 2 && <Award className="w-12 h-12 text-orange-400" />}
                     </div>
-                    <h3 className="font-bold text-white text-lg mb-1">
+                    <h3 className="font-bold text-white text-xl mb-2">
                       {leader.username}
+                      {leader.username === data?.user.username && (
+                        <span className="ml-2 text-xs bg-blue-600 px-2 py-1 rounded">ВЫ</span>
+                      )}
                     </h3>
-                    <div className={`text-2xl font-bold mb-2 ${
+                    <div className={`text-3xl font-bold mb-3 ${
                       index === 0 ? 'text-yellow-400' : index === 1 ? 'text-gray-400' : 'text-orange-400'
                     }`}>
-                      ${leader.salary?.total_salary?.toFixed(2) || '0.00'}
+                      ${leader.totalGross.toFixed(2)}
                     </div>
-                    <div className="text-sm text-gray-400 space-y-1">
-                      <div>База: ${leader.salary?.base_salary?.toFixed(2) || '0.00'}</div>
-                      {(leader.salary?.bonus || 0) > 0 && <div>Бонус: +${leader.salary?.bonus?.toFixed(2) || '0.00'}</div>}
-                      {(leader.salary?.leader_bonus || 0) > 0 && (
-                        <div className="text-yellow-400">
-                          <Trophy className="w-3 h-3 inline mr-1" />
-                          Лидер: +${leader.salary?.leader_bonus?.toFixed(2) || '0.00'}
+                    <div className="text-sm text-gray-300 space-y-1">
+                      <div>🎯 {leader.transactionCount} транзакций</div>
+                      <div>🏢 {leader.casinoCount} казино</div>
+                      {leader.salary?.leader_bonus > 0 && (
+                        <div className="text-yellow-400 font-bold">
+                          👑 Лидер месяца!
                         </div>
                       )}
-                    </div>
-                    <div className={`mt-3 px-2 py-1 rounded text-xs ${
-                      leader.salary?.is_paid 
-                        ? 'bg-green-900/30 text-green-400' 
-                        : 'bg-yellow-900/30 text-yellow-400'
-                    }`}>
-                      {leader.salary?.is_paid ? 'Оплачено' : 'Ожидает'}
                     </div>
                   </div>
                 </div>
@@ -389,11 +396,11 @@ export default function EmployeeDashboard() {
         </Card>
 
         {/* Full Leaderboard */}
-        <Card className="bg-gray-800 border-gray-700 mb-8">
+        <Card className="bg-gray-800/50 border-gray-700 mb-8">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
               <Users className="w-5 h-5" />
-              Таблица лидеров ({data?.leaderboard.length || 0} сотрудников)
+              🏁 Таблица лидеров ({data?.leaderboard.length || 0} игроков)
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -402,22 +409,21 @@ export default function EmployeeDashboard() {
                 <thead>
                   <tr className="border-b border-gray-700">
                     <th className="text-left py-3 px-4 text-gray-400">#</th>
-                    <th className="text-left py-3 px-4 text-gray-400">Сотрудник</th>
-                    <th className="text-right py-3 px-4 text-gray-400">База</th>
-                    <th className="text-right py-3 px-4 text-gray-400">Бонус</th>
-                    <th className="text-right py-3 px-4 text-gray-400">Лидер</th>
-                    <th className="text-right py-3 px-4 text-gray-400">Итого</th>
-                    <th className="text-center py-3 px-4 text-gray-400">Статус</th>
+                    <th className="text-left py-3 px-4 text-gray-400">Игрок</th>
+                    <th className="text-right py-3 px-4 text-gray-400">💰 Профит</th>
+                    <th className="text-right py-3 px-4 text-gray-400">🎯 Транзакций</th>
+                    <th className="text-right py-3 px-4 text-gray-400">🏢 Казино</th>
+                    <th className="text-center py-3 px-4 text-gray-400">💸 Выплата</th>
                   </tr>
                 </thead>
                 <tbody>
                   {data?.leaderboard.map((employee) => (
                     <tr 
                       key={employee.username} 
-                      className={`border-b border-gray-700/50 hover:bg-gray-700/30 ${
-                        employee.username === data.user.username ? 'bg-blue-900/20' : ''
+                      className={`border-b border-gray-700/50 hover:bg-gray-700/30 transition-colors ${
+                        employee.username === data.user.username ? 'bg-blue-900/20 border-blue-500/30' : ''
                       } ${
-                        (employee.salary?.leader_bonus || 0) > 0 ? 'bg-yellow-900/10' : ''
+                        employee.salary?.leader_bonus > 0 ? 'bg-yellow-900/10' : ''
                       }`}
                     >
                       <td className="py-3 px-4 font-bold">
@@ -436,47 +442,26 @@ export default function EmployeeDashboard() {
                             {employee.username}
                           </span>
                           {employee.username === data.user.username && (
-                            <span className="text-xs bg-blue-900 text-blue-300 px-2 py-1 rounded">Вы</span>
+                            <span className="text-xs bg-blue-600 text-blue-100 px-2 py-1 rounded-full">ВЫ</span>
                           )}
-                          {!employee.salary && (
-                            <span className="text-xs bg-red-900 text-red-300 px-2 py-1 rounded">Уволен</span>
+                          {employee.salary?.leader_bonus > 0 && (
+                            <span className="text-xs bg-yellow-600 text-yellow-100 px-2 py-1 rounded-full">ЛИДЕР</span>
                           )}
                         </div>
                       </td>
-                      <td className="py-3 px-4 text-right">${employee.salary?.base_salary?.toFixed(2) || '0.00'}</td>
-                      <td className="py-3 px-4 text-right">
-                        {(employee.salary?.bonus || 0) > 0 ? (
-                          <span className="text-green-400">${employee.salary?.bonus?.toFixed(2) || '0.00'}</span>
-                        ) : (
-                          <span className="text-gray-500">-</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        {(employee.salary?.leader_bonus || 0) > 0 ? (
-                          <span className="text-yellow-400 font-bold flex items-center justify-end gap-1">
-                            <Trophy className="w-3 h-3" />
-                            ${employee.salary?.leader_bonus?.toFixed(2) || '0.00'}
-                          </span>
-                        ) : (
-                          <span className="text-gray-500">-</span>
-                        )}
-                      </td>
                       <td className="py-3 px-4 text-right font-bold text-green-400">
-                        ${employee.salary?.total_salary?.toFixed(2) || '0.00'}
+                        ${employee.totalGross.toFixed(2)}
                       </td>
+                      <td className="py-3 px-4 text-right">{employee.transactionCount}</td>
+                      <td className="py-3 px-4 text-right">{employee.casinoCount}</td>
                       <td className="py-3 px-4 text-center">
-                        <span className={`px-2 py-1 rounded-full text-xs ${
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                           employee.salary?.is_paid 
-                            ? 'bg-green-900/30 text-green-400' 
-                            : 'bg-yellow-900/30 text-yellow-400'
+                            ? 'bg-green-900/30 text-green-400 border border-green-600' 
+                            : 'bg-yellow-900/30 text-yellow-400 border border-yellow-600'
                         }`}>
-                          {employee.salary?.is_paid ? 'Оплачено' : 'Ожидает'}
+                          {employee.salary?.is_paid ? '✅ Выплачено' : '⏳ Ожидает'}
                         </span>
-                        {employee.salary?.paid_at && (
-                          <div className="text-xs text-gray-500 mt-1">
-                            {new Date(employee.salary.paid_at).toLocaleDateString('ru-RU')}
-                          </div>
-                        )}
                       </td>
                     </tr>
                   ))}
@@ -486,25 +471,30 @@ export default function EmployeeDashboard() {
           </CardContent>
         </Card>
 
-        {/* Casino Stats */}
-        <Card className="bg-gray-800 border-gray-700">
+        {/* Casino Performance */}
+        <Card className="bg-gray-800/50 border-gray-700 mb-8">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
               <PieChart className="w-5 h-5" />
-              Профит по казино
+              🎰 Производительность казино
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {data?.casinoStats.slice(0, 9).map((casino, index) => (
-                <div key={casino.name} className="bg-gray-700/50 rounded-lg p-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="font-medium text-gray-300">{casino.name}</span>
-                    <span className="text-lg font-bold text-green-400">
-                      ${casino.totalGross.toFixed(0)}
-                    </span>
+                <div key={casino.name} className="bg-gray-700/50 rounded-xl p-4 border border-gray-600">
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <h4 className="font-semibold text-white">{casino.name}</h4>
+                      <p className="text-xs text-gray-400">{casino.employeeCount} игроков</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-bold text-green-400">${casino.totalGross.toFixed(0)}</p>
+                      <p className="text-xs text-gray-400">{casino.transactionCount} транз.</p>
+                    </div>
                   </div>
-                  <div className="w-full bg-gray-600 rounded-full h-2">
+                  
+                  <div className="w-full bg-gray-600 rounded-full h-2 mb-2">
                     <div 
                       className="bg-green-500 h-2 rounded-full"
                       style={{ 
@@ -512,8 +502,51 @@ export default function EmployeeDashboard() {
                       }}
                     />
                   </div>
-                  <div className="text-xs text-gray-400 mt-1">
-                    {((casino.totalGross / (data.stats.totalGross || 1)) * 100).toFixed(1)}% от общего
+                  
+                  <div className="flex justify-between text-xs text-gray-400">
+                    <span>{((casino.totalGross / (data.stats.totalGross || 1)) * 100).toFixed(1)}% от общего</span>
+                    <span>Средний: ${casino.avgProfit.toFixed(0)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Recent Activity */}
+        <Card className="bg-gray-800/50 border-gray-700">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center gap-2">
+              <Activity className="w-5 h-5" />
+              📈 Последние транзакции
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {data?.recentTransactions.slice(0, 10).map((transaction, index) => (
+                <div key={transaction.id} className="flex items-center justify-between p-3 bg-gray-700/30 rounded-lg border border-gray-600">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-xs font-bold">
+                      {index + 1}
+                    </div>
+                    <div>
+                      <p className="font-medium text-white">{transaction.employee}</p>
+                      <p className="text-sm text-gray-400">{transaction.casino_name}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="text-right">
+                    <p className={`font-bold ${
+                      transaction.gross_profit_usd >= 0 ? 'text-green-400' : 'text-red-400'
+                    }`}>
+                      ${transaction.gross_profit_usd.toFixed(2)}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {new Date(transaction.created_at).toLocaleTimeString('ru-RU', { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}
+                    </p>
                   </div>
                 </div>
               ))}

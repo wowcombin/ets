@@ -84,7 +84,13 @@ export default function ProfilePage() {
           <h1 className="text-3xl font-bold text-white">Профиль</h1>
           <div className="flex gap-3">
             <Button
-              onClick={() => router.push('/dashboard')}
+              onClick={() => {
+                if (user?.is_manager) {
+                  router.push('/dashboard')
+                } else {
+                  router.push('/employee-dashboard')
+                }
+              }}
               variant="outline"
               className="text-blue-400 border-blue-400 hover:bg-blue-900/20"
             >
