@@ -595,7 +595,8 @@ export async function GET() {
       if (workSessionsResponse.ok) {
         const workSessionsResult = await workSessionsResponse.json()
         console.log('Work sessions analysis completed:', workSessionsResult.message)
-        results.stats.workSessionsAnalyzed = workSessionsResult.data?.createdSessions || 0
+        // Добавляем информацию о рабочих сессиях в результат (но не в stats)
+        results.workSessionsAnalyzed = workSessionsResult.data?.createdSessions || 0
       } else {
         console.error('Work sessions analysis failed:', await workSessionsResponse.text())
       }
@@ -618,7 +619,8 @@ export async function GET() {
       cardThemes: results.cardThemes,
       errors: results.errors,
       employeesList: results.employeesList,
-      message: `Обработано ${results.stats.employeesProcessed} сотрудников (активных: ${results.stats.activeEmployees}, уволенных: ${results.stats.firedEmployees}), ${results.stats.transactionsCreated} транзакций`
+      workSessionsAnalyzed: results.workSessionsAnalyzed || 0,
+      message: `Обработано ${results.stats.employeesProcessed} сотрудников (активных: ${results.stats.activeEmployees}, уволенных: ${results.stats.firedEmployees}), ${results.stats.transactionsCreated} транзакций. Создано ${results.workSessionsAnalyzed || 0} рабочих сессий.`
     })
     
   } catch (error: any) {
