@@ -213,7 +213,7 @@ export default function EmployeeDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-green-400">
-                ${(data?.totalGross || 0).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                ${(data?.stats.totalGross || 0).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
               <p className="text-sm text-gray-400 mt-2">
                 Брутто профит всех сотрудников
@@ -284,7 +284,7 @@ export default function EmployeeDashboard() {
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-blue-400">
-                    ${myStats.totalGross.toFixed(2)}
+                    ${myStats?.totalGross.toFixed(2) || '0.00'}
                   </div>
                   <p className="text-sm text-gray-400">Мой профит</p>
                 </div>
@@ -508,12 +508,12 @@ export default function EmployeeDashboard() {
                     <div 
                       className="bg-green-500 h-2 rounded-full"
                       style={{ 
-                        width: `${Math.min((casino.profit / (data.totalGross || 1)) * 100, 100)}%` 
+                        width: `${Math.min((casino.profit / (data.stats.totalGross || 1)) * 100, 100)}%` 
                       }}
                     />
                   </div>
                   <div className="text-xs text-gray-400 mt-1">
-                    {((casino.profit / (data.totalGross || 1)) * 100).toFixed(1)}% от общего
+                    {((casino.profit / (data.stats.totalGross || 1)) * 100).toFixed(1)}% от общего
                   </div>
                 </div>
               ))}
