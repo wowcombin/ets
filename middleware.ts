@@ -9,8 +9,12 @@ const publicPaths = [
   '/',
   '/api/auth/login',
   '/api/auth/register',
+  '/api/auth/simple-login',
   '/api/test-db',
   '/api/debug-auth',
+  '/api/debug-employee-data',
+  '/api/last-sync-info',
+  '/api/setup-sessions-table',
   '/api/create-sessions-table'
 ]
 
