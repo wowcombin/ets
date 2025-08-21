@@ -269,16 +269,16 @@ export default function EmployeeDashboard() {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-yellow-400 flex items-center justify-center gap-2">
-                    #{myStats.rank}
-                    {myStats.rank === 1 && <Crown className="w-5 h-5" />}
-                    {myStats.rank === 2 && <Medal className="w-5 h-5" />}
-                    {myStats.rank === 3 && <Award className="w-5 h-5" />}
+                    #{myStats?.rank || 0}
+                    {myStats?.rank === 1 && <Crown className="w-5 h-5" />}
+                    {myStats?.rank === 2 && <Medal className="w-5 h-5" />}
+                    {myStats?.rank === 3 && <Award className="w-5 h-5" />}
                   </div>
                   <p className="text-sm text-gray-400">Место</p>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-green-400">
-                    ${myStats.salary?.total_salary.toFixed(2) || '0.00'}
+                    ${myStats?.salary?.total_salary?.toFixed(2) || '0.00'}
                   </div>
                   <p className="text-sm text-gray-400">Общая зарплата</p>
                 </div>
@@ -290,34 +290,34 @@ export default function EmployeeDashboard() {
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-purple-400">
-                    {myStats.transactionCount}
+                    {myStats?.transactionCount || 0}
                   </div>
                   <p className="text-sm text-gray-400">Транзакций</p>
                 </div>
                 <div className="text-center">
-                  <div className={`text-2xl font-bold ${myStats.salary?.is_paid ? 'text-green-400' : 'text-yellow-400'}`}>
-                    {myStats.salary?.is_paid ? 'Оплачено' : 'Ожидает'}
+                  <div className={`text-2xl font-bold ${myStats?.salary?.is_paid ? 'text-green-400' : 'text-yellow-400'}`}>
+                    {myStats?.salary?.is_paid ? 'Оплачено' : 'Ожидает'}
                   </div>
                   <p className="text-sm text-gray-400">Статус выплаты</p>
                 </div>
               </div>
               
-              {(myStats.salary?.bonus > 0 || myStats.salary?.leader_bonus > 0) && (
+              {(myStats?.salary?.bonus > 0 || myStats?.salary?.leader_bonus > 0) && (
                 <div className="mt-4 pt-4 border-t border-gray-700">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {myStats.salary?.bonus > 0 && (
+                    {myStats?.salary?.bonus > 0 && (
                       <div className="text-center">
                         <div className="text-xl font-bold text-green-400">
-                          +${myStats.salary.bonus.toFixed(2)}
+                          +${myStats?.salary?.bonus?.toFixed(2) || '0.00'}
                         </div>
                         <p className="text-sm text-gray-400">Бонус за результат</p>
                       </div>
                     )}
-                    {myStats.salary?.leader_bonus > 0 && (
+                    {myStats?.salary?.leader_bonus > 0 && (
                       <div className="text-center">
                         <div className="text-xl font-bold text-yellow-400 flex items-center justify-center gap-2">
                           <Trophy className="w-4 h-4" />
-                          +${myStats.salary.leader_bonus.toFixed(2)}
+                          +${myStats?.salary?.leader_bonus?.toFixed(2) || '0.00'}
                         </div>
                         <p className="text-sm text-gray-400">Лидер месяца</p>
                       </div>
