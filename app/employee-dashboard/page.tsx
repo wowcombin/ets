@@ -417,7 +417,7 @@ export default function EmployeeDashboard() {
                       className={`border-b border-gray-700/50 hover:bg-gray-700/30 ${
                         employee.username === data.user.username ? 'bg-blue-900/20' : ''
                       } ${
-                        employee.leader_bonus > 0 ? 'bg-yellow-900/10' : ''
+                        (employee.salary?.leader_bonus || 0) > 0 ? 'bg-yellow-900/10' : ''
                       }`}
                     >
                       <td className="py-3 px-4 font-bold">
@@ -438,43 +438,43 @@ export default function EmployeeDashboard() {
                           {employee.username === data.user.username && (
                             <span className="text-xs bg-blue-900 text-blue-300 px-2 py-1 rounded">Вы</span>
                           )}
-                          {!employee.is_active && (
+                          {!employee.salary && (
                             <span className="text-xs bg-red-900 text-red-300 px-2 py-1 rounded">Уволен</span>
                           )}
                         </div>
                       </td>
-                      <td className="py-3 px-4 text-right">${employee.base_salary.toFixed(2)}</td>
+                      <td className="py-3 px-4 text-right">${employee.salary?.base_salary?.toFixed(2) || '0.00'}</td>
                       <td className="py-3 px-4 text-right">
-                        {employee.bonus > 0 ? (
-                          <span className="text-green-400">${employee.bonus.toFixed(2)}</span>
+                        {(employee.salary?.bonus || 0) > 0 ? (
+                          <span className="text-green-400">${employee.salary?.bonus?.toFixed(2) || '0.00'}</span>
                         ) : (
                           <span className="text-gray-500">-</span>
                         )}
                       </td>
                       <td className="py-3 px-4 text-right">
-                        {employee.leader_bonus > 0 ? (
+                        {(employee.salary?.leader_bonus || 0) > 0 ? (
                           <span className="text-yellow-400 font-bold flex items-center justify-end gap-1">
                             <Trophy className="w-3 h-3" />
-                            ${employee.leader_bonus.toFixed(2)}
+                            ${employee.salary?.leader_bonus?.toFixed(2) || '0.00'}
                           </span>
                         ) : (
                           <span className="text-gray-500">-</span>
                         )}
                       </td>
                       <td className="py-3 px-4 text-right font-bold text-green-400">
-                        ${employee.total_salary.toFixed(2)}
+                        ${employee.salary?.total_salary?.toFixed(2) || '0.00'}
                       </td>
                       <td className="py-3 px-4 text-center">
                         <span className={`px-2 py-1 rounded-full text-xs ${
-                          employee.is_paid 
+                          employee.salary?.is_paid 
                             ? 'bg-green-900/30 text-green-400' 
                             : 'bg-yellow-900/30 text-yellow-400'
                         }`}>
-                          {employee.is_paid ? 'Оплачено' : 'Ожидает'}
+                          {employee.salary?.is_paid ? 'Оплачено' : 'Ожидает'}
                         </span>
-                        {employee.paid_at && (
+                        {employee.salary?.paid_at && (
                           <div className="text-xs text-gray-500 mt-1">
-                            {new Date(employee.paid_at).toLocaleDateString('ru-RU')}
+                            {new Date(employee.salary.paid_at).toLocaleDateString('ru-RU')}
                           </div>
                         )}
                       </td>
