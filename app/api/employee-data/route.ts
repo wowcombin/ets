@@ -123,11 +123,11 @@ export async function GET() {
     })
     
     // Определяем лидера месяца (один сотрудник с самой большой транзакцией)
-    let monthLeader = null
+    let monthLeader: any = null
     let maxTransactionValue = 0
     
     employeeStats.forEach(emp => {
-      const empMaxTransaction = emp.salary?.max_transaction || 0
+      const empMaxTransaction = (emp.salary as any)?.max_transaction || 0
       if (empMaxTransaction > maxTransactionValue) {
         maxTransactionValue = empMaxTransaction
         monthLeader = emp
