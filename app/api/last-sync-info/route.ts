@@ -42,7 +42,7 @@ export async function GET() {
       data: {
         lastSync: lastTransaction ? {
           time: lastTransaction.created_at,
-          employee: Array.isArray(lastTransaction.employee) ? lastTransaction.employee[0]?.username : lastTransaction.employee?.username,
+          employee: (lastTransaction.employee as any)?.username || 'Unknown',
           casino: lastTransaction.casino_name,
           profit: lastTransaction.gross_profit_usd,
           timeAgo: Math.round((new Date().getTime() - new Date(lastTransaction.created_at).getTime()) / (1000 * 60)) // минут назад
