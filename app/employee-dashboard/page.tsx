@@ -501,19 +501,19 @@ export default function EmployeeDashboard() {
                   <div className="flex justify-between items-center mb-2">
                     <span className="font-medium text-gray-300">{casino.name}</span>
                     <span className="text-lg font-bold text-green-400">
-                      ${casino.profit.toFixed(0)}
+                      ${casino.totalGross.toFixed(0)}
                     </span>
                   </div>
                   <div className="w-full bg-gray-600 rounded-full h-2">
                     <div 
                       className="bg-green-500 h-2 rounded-full"
                       style={{ 
-                        width: `${Math.min((casino.profit / (data.stats.totalGross || 1)) * 100, 100)}%` 
+                        width: `${Math.min((casino.totalGross / (data.stats.totalGross || 1)) * 100, 100)}%` 
                       }}
                     />
                   </div>
                   <div className="text-xs text-gray-400 mt-1">
-                    {((casino.profit / (data.stats.totalGross || 1)) * 100).toFixed(1)}% от общего
+                    {((casino.totalGross / (data.stats.totalGross || 1)) * 100).toFixed(1)}% от общего
                   </div>
                 </div>
               ))}
