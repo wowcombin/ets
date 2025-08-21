@@ -177,18 +177,18 @@ export default function EmployeeDashboard() {
     // Первая загрузка с показом лоадера
     loadData(true)
     
-    // Автообновление каждые 5 минут с синхронизацией каждые 10 минут
+    // Автообновление каждые 3 минуты с синхронизацией каждые 6 минут
     let syncCounter = 0
     const interval = setInterval(() => {
       syncCounter++
-      // Каждое второе обновление (каждые 10 минут) запускаем синхронизацию
+      // Каждое второе обновление (каждые 6 минут) запускаем синхронизацию
       const shouldSync = syncCounter % 2 === 0
-      loadData(false, shouldSync) // false = не показывать лоадер, shouldSync = синхронизация каждые 10 мин
+      loadData(false, shouldSync) // false = не показывать лоадер, shouldSync = синхронизация каждые 6 мин
       
       if (shouldSync) {
         console.log('Auto sync triggered at:', new Date().toLocaleTimeString())
       }
-    }, 300000) // 300000 мс = 5 минут
+    }, 180000) // 180000 мс = 3 минуты (более частое обновление)
     
     return () => clearInterval(interval)
   }, [router])
@@ -361,6 +361,48 @@ export default function EmployeeDashboard() {
                   </div>
                 )}
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Month Leader Info */}
+        {data?.leaderboard && (
+          <Card className="bg-gradient-to-r from-yellow-900/30 to-orange-900/30 border-yellow-500/50 mb-8 shadow-xl">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <Trophy className="w-6 h-6 text-yellow-400" />
+                🏆 Лидер месяца
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                const leader = data.leaderboard.find(emp => (emp.salary?.leader_bonus || 0) > 0)
+                if (!leader) {
+                  return (
+                    <div className="text-center py-4">
+                      <p className="text-gray-400">Лидер месяца еще не определен</p>
+                    </div>
+                  )
+                }
+                return (
+                  <div className="text-center">
+                    <div className="text-4xl font-bold text-yellow-400 mb-2">
+                      {leader.username}
+                    </div>
+                    <p className="text-lg text-gray-300 mb-4">
+                      Самая большая транзакция: ${(leader.salary?.leader_bonus || 0) / 0.1}
+                    </p>
+                    <div className="bg-yellow-900/20 rounded-lg p-4">
+                      <div className="text-2xl font-bold text-yellow-400">
+                        +${leader.salary?.leader_bonus?.toFixed(2) || '0.00'}
+                      </div>
+                      <p className="text-sm text-gray-400">
+                        Дополнительный бонус (10% от самой большой транзакции)
+                      </p>
+                    </div>
+                  </div>
+                )
+              })()}
             </CardContent>
           </Card>
         )}

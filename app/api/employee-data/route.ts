@@ -11,12 +11,12 @@ export async function GET() {
     const supabase = getServiceSupabase()
     const currentMonth = `${new Date().getFullYear()}-${(new Date().getMonth() + 1).toString().padStart(2, '0')}`
     
-    // Получаем только данные сотрудников (не менеджеров)
+    // Получаем ВСЕХ сотрудников (не менеджеров), включая тех у кого нет листа WORK
     const { data: employees, error: empError } = await supabase
       .from('employees')
       .select('*')
       .eq('is_manager', false)
-      .eq('is_active', true)
+      // Убираем фильтр по is_active чтобы показать всех сотрудников
     
     if (empError) throw empError
     
