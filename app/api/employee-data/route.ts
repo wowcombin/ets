@@ -178,7 +178,7 @@ export async function GET() {
       topCasino: Object.entries(emp.topCasino).sort(([,a], [,b]) => (b as number) - (a as number))[0]?.[0] || 'Нет данных'
     })).sort((a, b) => b.monthlyProfit - a.monthlyProfit) || [] // Сортируем по месячному профиту для соответствия с таблицей лидеров
     
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       data: {
         month: currentMonth,
