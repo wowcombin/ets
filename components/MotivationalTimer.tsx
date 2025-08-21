@@ -9,19 +9,25 @@ import {
   Trophy,
   TrendingUp,
   Star,
-  Fire,
+  Flame,
   Rocket
 } from 'lucide-react'
 
 interface MotivationalTimerProps {
   userStats?: {
+    id?: string
+    username?: string
     totalGross: number
     rank: number
+    transactionCount?: number
+    casinoCount?: number
     salary?: {
-      total_salary: number
+      base_salary?: number
       bonus: number
       leader_bonus: number
-    }
+      total_salary: number
+      is_paid?: boolean
+    } | null
   }
 }
 
@@ -69,7 +75,7 @@ function getMotivationalMessage(stage: 'start' | 'middle' | 'end', userStats?: a
           message: `Отличная работа! Ты на ${rank} месте. Поднажми и будешь первым!`,
           emoji: "⚡",
           color: "from-yellow-600 to-orange-600",
-          icon: <Fire className="w-6 h-6" />
+          icon: <Flame className="w-6 h-6" />
         }
       } else if (totalGross >= 1000) {
         return {

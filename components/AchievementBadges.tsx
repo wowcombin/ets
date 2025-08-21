@@ -25,15 +25,19 @@ interface Achievement {
 
 interface AchievementBadgesProps {
   userStats?: {
+    id?: string
+    username?: string
     totalGross: number
     rank: number
-    transactionCount: number
-    casinoCount: number
+    transactionCount?: number
+    casinoCount?: number
     salary?: {
-      total_salary: number
+      base_salary?: number
       bonus: number
       leader_bonus: number
-    }
+      total_salary: number
+      is_paid?: boolean
+    } | null
   }
 }
 
@@ -47,7 +51,7 @@ export default function AchievementBadges({ userStats }: AchievementBadgesProps)
       description: 'Совершить первую транзакцию',
       icon: <Star className="w-5 h-5" />,
       color: 'bg-blue-600',
-      unlocked: userStats.transactionCount > 0
+      unlocked: (userStats.transactionCount || 0) > 0
     },
     {
       id: 'hundred_club',
@@ -79,7 +83,7 @@ export default function AchievementBadges({ userStats }: AchievementBadgesProps)
       description: 'Работать в 10+ казино',
       icon: <Zap className="w-5 h-5" />,
       color: 'bg-orange-600',
-      unlocked: userStats.casinoCount >= 10
+      unlocked: (userStats.casinoCount || 0) >= 10
     },
     {
       id: 'top_three',
