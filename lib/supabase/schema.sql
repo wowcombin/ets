@@ -84,6 +84,24 @@ CREATE TABLE IF NOT EXISTS sessions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
 );
 
+-- Создаем таблицу рабочих сессий для отслеживания активности
+CREATE TABLE IF NOT EXISTS work_sessions (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    employee_id UUID REFERENCES employees(id) ON DELETE CASCADE,
+    casino_name VARCHAR(255) NOT NULL,
+    card_number VARCHAR(255),
+    deposit_amount DECIMAL(10,2) NOT NULL,
+    withdrawal_amount DECIMAL(10,2),
+    deposit_time TIMESTAMP WITH TIME ZONE NOT NULL, -- время депозита
+    withdrawal_time TIMESTAMP WITH TIME ZONE, -- время вывода
+    work_duration_minutes INTEGER, -- продолжительность работы в минутах (от депозита до вывода + 5 мин)
+    gross_profit DECIMAL(10,2), -- вывод - депозит
+    is_completed BOOLEAN DEFAULT FALSE, -- завершена ли сессия (есть ли вывод)
+    month VARCHAR(7) NOT NULL, -- формат "2024-08"
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
+);
+
 -- Создаем индексы для оптимизации
 CREATE INDEX idx_transactions_month ON transactions(month);
 CREATE INDEX idx_transactions_employee ON transactions(employee_id);
@@ -94,6 +112,11 @@ CREATE INDEX idx_salaries_employee ON salaries(employee_id);
 CREATE INDEX idx_sessions_token ON sessions(token);
 CREATE INDEX idx_sessions_employee ON sessions(employee_id);
 CREATE INDEX idx_sessions_expires ON sessions(expires_at);
+CREATE INDEX idx_work_sessions_employee ON work_sessions(employee_id);
+CREATE INDEX idx_work_sessions_month ON work_sessions(month);
+CREATE INDEX idx_work_sessions_casino ON work_sessions(casino_name);
+CREATE INDEX idx_work_sessions_deposit_time ON work_sessions(deposit_time);
+CREATE INDEX idx_work_sessions_completed ON work_sessions(is_completed);
 
 -- Вставляем начальные данные для сотрудников
 INSERT INTO employees (username, is_manager, manager_type, profit_percentage) VALUES
@@ -135,6 +158,7 @@ ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cards ENABLE ROW LEVEL SECURITY;
 ALTER TABLE salaries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE work_sessions ENABLE ROW LEVEL SECURITY;
 
 -- Создаем политики для публичного доступа (временно, потом настроим авторизацию)
 CREATE POLICY "Enable read access for all users" ON employees
@@ -194,4 +218,17 @@ CREATE POLICY "Enable update for service role" ON sessions
     FOR UPDATE USING (auth.role() = 'service_role');
 
 CREATE POLICY "Enable delete for service role" ON sessions
+    FOR DELETE USING (auth.role() = 'service_role');
+
+-- Политики для work_sessions
+CREATE POLICY "Enable read access for all users" ON work_sessions
+    FOR SELECT USING (true);
+
+CREATE POLICY "Enable insert for service role" ON work_sessions
+    FOR INSERT WITH CHECK (auth.role() = 'service_role');
+
+CREATE POLICY "Enable update for service role" ON work_sessions
+    FOR UPDATE USING (auth.role() = 'service_role');
+
+CREATE POLICY "Enable delete for service role" ON work_sessions
     FOR DELETE USING (auth.role() = 'service_role');

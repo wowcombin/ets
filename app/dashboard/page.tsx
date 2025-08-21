@@ -310,6 +310,14 @@ export default function DashboardPage() {
                 <CreditCard className="w-4 h-4" />
                 Анализ карт
               </button>
+              
+              <button
+                onClick={() => window.location.href = '/activity-stats'}
+                className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg flex items-center gap-2 transition-colors"
+              >
+                <Activity className="w-4 h-4" />
+                Активность
+              </button>
             </div>
           </div>
         </div>

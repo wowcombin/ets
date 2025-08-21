@@ -584,6 +584,26 @@ export async function GET() {
     results.stats.totalGross = dbTotalGross
     results.stats.totalNet = dbTotalGross - results.stats.totalExpenses
     
+    // Автоматически анализируем рабочие сессии после синхронизации
+    try {
+      console.log('Starting automatic work sessions analysis...')
+      const workSessionsResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/work-sessions/auto-analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      })
+      
+      if (workSessionsResponse.ok) {
+        const workSessionsResult = await workSessionsResponse.json()
+        console.log('Work sessions analysis completed:', workSessionsResult.message)
+        results.stats.workSessionsAnalyzed = workSessionsResult.data?.createdSessions || 0
+      } else {
+        console.error('Work sessions analysis failed:', await workSessionsResponse.text())
+      }
+    } catch (workSessionError) {
+      console.error('Work sessions analysis error:', workSessionError)
+      // Не прерываем основную синхронизацию из-за ошибки анализа сессий
+    }
+    
     return NextResponse.json({
       success: true,
       stats: {
