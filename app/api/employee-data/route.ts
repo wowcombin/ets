@@ -136,7 +136,7 @@ export async function GET() {
     
     // Устанавливаем бонус лидера только для одного сотрудника
     if (monthLeader && maxTransactionValue > 0) {
-      const leaderBonus = maxTransactionValue * 0.2 // 20% от самой большой транзакции
+      const leaderBonus = maxTransactionValue * 0.1 // 10% от самой большой транзакции
       if (monthLeader.salary) {
         monthLeader.salary.leader_bonus = leaderBonus
         monthLeader.salary.total_salary = (monthLeader.salary.base_salary || 0) + (monthLeader.salary.bonus || 0) + leaderBonus
@@ -180,11 +180,31 @@ export async function GET() {
     // Данные текущего пользователя
     const currentUserStats = employeeStats.find(emp => emp.id === user.id)
     
-    // Последние транзакции (только от сотрудников, только положительные результаты)
-    const recentTransactions = transactions
-      ?.filter(t => (t.gross_profit_usd || 0) > 0) // Показываем только положительные результаты
+    // Последние обновления (где есть заполненные клетки > 0)
+    const recentUpdates = transactions
+      ?.filter(t => {
+        // Показываем записи где есть депозит > 0 ИЛИ вывод > 0
+        const hasDeposit = (t.deposit_usd || 0) > 0
+        const hasWithdrawal = (t.withdrawal_usd || 0) > 0
+        return hasDeposit || hasWithdrawal
+      })
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) // Сортируем по времени
-      .slice(0, 20) || []
+      .slice(0, 20)
+      .map(t => {
+        // Рассчитываем по формуле (вывод - депозит) * 1.3
+        const deposit = t.deposit_usd || 0
+        const withdrawal = t.withdrawal_usd || 0
+        const profit = withdrawal - deposit
+        const adjustedProfit = profit * 1.3
+        
+        return {
+          ...t,
+          calculated_profit: adjustedProfit,
+          has_deposit: deposit > 0,
+          has_withdrawal: withdrawal > 0,
+          raw_profit: profit
+        }
+      }) || []
     
     // Анализ новых аккаунтов (сотрудники с недавней активностью)
     const newAccountsActivity = employees?.map(emp => {
@@ -241,20 +261,19 @@ export async function GET() {
         },
         leaderboard: employeeStats,
         casinoStats: sortedCasinos,
-        recentTransactions: recentTransactions.map(t => ({
+        recentUpdates: recentUpdates.map(t => ({
           id: t.id,
           employee: t.employee?.username,
           casino_name: t.casino_name,
-          gross_profit_usd: t.gross_profit_usd,
           deposit_usd: t.deposit_usd,
           withdrawal_usd: t.withdrawal_usd,
+          raw_profit: t.raw_profit,
+          calculated_profit: t.calculated_profit,
+          has_deposit: t.has_deposit,
+          has_withdrawal: t.has_withdrawal,
           card_number: t.card_number,
           created_at: t.created_at,
-          created_at_debug: {
-            original: t.created_at,
-            parsed: new Date(t.created_at).toISOString(),
-            formatted: new Date(t.created_at).toLocaleString('ru-RU')
-          }
+          update_type: t.has_deposit && t.has_withdrawal ? 'complete' : t.has_deposit ? 'deposit' : 'withdrawal'
         })),
         accountsActivity: newAccountsActivity.slice(0, 10), // Топ-10 активных аккаунтов
         weeklyLeaders: newAccountsActivity.filter(emp => emp.weeklyProfit > 0).slice(0, 5), // Топ-5 за неделю

@@ -68,15 +68,19 @@ interface EmployeeData {
     employeeCount: number
     avgProfit: number
   }>
-  recentTransactions: Array<{
+  recentUpdates: Array<{
     id: string
     employee: string
     casino_name: string
-    gross_profit_usd: number
     deposit_usd: number
     withdrawal_usd: number
+    raw_profit: number
+    calculated_profit: number
+    has_deposit: boolean
+    has_withdrawal: boolean
     card_number: string
     created_at: string
+    update_type: 'complete' | 'deposit' | 'withdrawal'
   }>
   accountsActivity: Array<{
     username: string
@@ -326,7 +330,7 @@ export default function EmployeeDashboard() {
                         +${myStats.salary.leader_bonus?.toFixed(2) || '0.00'}
                       </div>
                       <p className="text-sm text-gray-400">🏆 ЛИДЕР МЕСЯЦА</p>
-                      <p className="text-xs text-gray-500">20% от самой большой транзакции</p>
+                      <p className="text-xs text-gray-500">10% от самой большой транзакции</p>
                     </div>
                   )}
                   </div>
@@ -690,29 +694,46 @@ export default function EmployeeDashboard() {
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
               <Activity className="w-5 h-5" />
-              📈 Успешные транзакции
+              📈 Последние обновления
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {data?.recentTransactions.slice(0, 10).map((transaction, index) => (
-                <div key={transaction.id} className="flex items-center justify-between p-3 bg-gray-700/30 rounded-lg border border-gray-600">
+              {data?.recentUpdates.slice(0, 10).map((update, index) => (
+                <div key={update.id} className="flex items-center justify-between p-3 bg-gray-700/30 rounded-lg border border-gray-600">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-xs font-bold">
                       {index + 1}
                     </div>
                     <div>
-                      <p className="font-medium text-white">{transaction.employee}</p>
-                      <p className="text-sm text-gray-400">{transaction.casino_name}</p>
+                      <p className="font-medium text-white">{update.employee}</p>
+                      <p className="text-sm text-gray-400">{update.casino_name}</p>
+                      <div className="flex gap-1 mt-1">
+                        {update.has_deposit && (
+                          <span className="text-xs bg-blue-600 text-blue-100 px-2 py-1 rounded">
+                            📥 ${update.deposit_usd.toFixed(0)}
+                          </span>
+                        )}
+                        {update.has_withdrawal && (
+                          <span className="text-xs bg-green-600 text-green-100 px-2 py-1 rounded">
+                            📤 ${update.withdrawal_usd.toFixed(0)}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   
                   <div className="text-right">
-                    <p className="font-bold text-green-400">
-                      +${transaction.gross_profit_usd.toFixed(2)}
+                    <p className={`font-bold ${
+                      update.calculated_profit >= 0 ? 'text-green-400' : 'text-red-400'
+                    }`}>
+                      {update.calculated_profit >= 0 ? '+' : ''}${update.calculated_profit.toFixed(2)}
                     </p>
                     <p className="text-xs text-gray-400">
-                      {new Date(transaction.created_at).toLocaleString('ru-RU', { 
+                      ({update.raw_profit >= 0 ? '+' : ''}${update.raw_profit.toFixed(2)} × 1.3)
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {new Date(update.created_at).toLocaleString('ru-RU', { 
                         day: '2-digit',
                         month: '2-digit',
                         hour: '2-digit', 
