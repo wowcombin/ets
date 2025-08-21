@@ -302,10 +302,10 @@ export default function EmployeeDashboard() {
                 </div>
               </div>
               
-              {(myStats?.salary?.bonus > 0 || myStats?.salary?.leader_bonus > 0) && (
+              {((myStats?.salary?.bonus || 0) > 0 || (myStats?.salary?.leader_bonus || 0) > 0) && (
                 <div className="mt-4 pt-4 border-t border-gray-700">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {myStats?.salary?.bonus > 0 && (
+                    {(myStats?.salary?.bonus || 0) > 0 && (
                       <div className="text-center">
                         <div className="text-xl font-bold text-green-400">
                           +${myStats?.salary?.bonus?.toFixed(2) || '0.00'}
@@ -313,7 +313,7 @@ export default function EmployeeDashboard() {
                         <p className="text-sm text-gray-400">Бонус за результат</p>
                       </div>
                     )}
-                    {myStats?.salary?.leader_bonus > 0 && (
+                    {(myStats?.salary?.leader_bonus || 0) > 0 && (
                       <div className="text-center">
                         <div className="text-xl font-bold text-yellow-400 flex items-center justify-center gap-2">
                           <Trophy className="w-4 h-4" />
