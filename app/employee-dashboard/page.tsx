@@ -362,24 +362,24 @@ export default function EmployeeDashboard() {
                     <div className={`text-2xl font-bold mb-2 ${
                       index === 0 ? 'text-yellow-400' : index === 1 ? 'text-gray-400' : 'text-orange-400'
                     }`}>
-                      ${leader.total_salary.toFixed(2)}
+                      ${leader.salary?.total_salary?.toFixed(2) || '0.00'}
                     </div>
                     <div className="text-sm text-gray-400 space-y-1">
-                      <div>База: ${leader.base_salary.toFixed(2)}</div>
-                      {leader.bonus > 0 && <div>Бонус: +${leader.bonus.toFixed(2)}</div>}
-                      {leader.leader_bonus > 0 && (
+                      <div>База: ${leader.salary?.base_salary?.toFixed(2) || '0.00'}</div>
+                      {(leader.salary?.bonus || 0) > 0 && <div>Бонус: +${leader.salary?.bonus?.toFixed(2) || '0.00'}</div>}
+                      {(leader.salary?.leader_bonus || 0) > 0 && (
                         <div className="text-yellow-400">
                           <Trophy className="w-3 h-3 inline mr-1" />
-                          Лидер: +${leader.leader_bonus.toFixed(2)}
+                          Лидер: +${leader.salary?.leader_bonus?.toFixed(2) || '0.00'}
                         </div>
                       )}
                     </div>
                     <div className={`mt-3 px-2 py-1 rounded text-xs ${
-                      leader.is_paid 
+                      leader.salary?.is_paid 
                         ? 'bg-green-900/30 text-green-400' 
                         : 'bg-yellow-900/30 text-yellow-400'
                     }`}>
-                      {leader.is_paid ? 'Оплачено' : 'Ожидает'}
+                      {leader.salary?.is_paid ? 'Оплачено' : 'Ожидает'}
                     </div>
                   </div>
                 </div>
