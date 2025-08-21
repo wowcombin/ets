@@ -285,6 +285,14 @@ export default function DashboardPage() {
               </button>
               
               <button
+                onClick={() => window.location.href = '/cards-analysis'}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg flex items-center gap-2 transition-colors"
+              >
+                <CreditCard className="w-4 h-4" />
+                Анализ карт
+              </button>
+              
+              <button
                 onClick={syncData}
                 disabled={syncing}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2 transition-colors"

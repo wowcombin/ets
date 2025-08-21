@@ -8,7 +8,10 @@ const publicPaths = [
   '/register',
   '/',
   '/api/auth/login',
-  '/api/auth/register'
+  '/api/auth/register',
+  '/api/test-db',
+  '/api/debug-auth',
+  '/api/create-sessions-table'
 ]
 
 export function middleware(request: NextRequest) {
