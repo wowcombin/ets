@@ -99,6 +99,7 @@ export default function EmployeeDashboard() {
   const [data, setData] = useState<EmployeeData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const router = useRouter()
   
   const currentMonth = new Date().toLocaleDateString('ru-RU', { 
@@ -106,8 +107,10 @@ export default function EmployeeDashboard() {
     year: 'numeric' 
   })
 
-  const loadData = async () => {
-    setLoading(true)
+  const loadData = async (showLoader = true) => {
+    if (showLoader) {
+      setLoading(true)
+    }
     setError(null)
     try {
       const response = await fetch('/api/employee-data')
@@ -115,6 +118,8 @@ export default function EmployeeDashboard() {
       
       if (result.success) {
         setData(result.data)
+        setLastUpdated(new Date())
+        console.log('Employee data updated:', new Date().toLocaleTimeString())
       } else {
         if (response.status === 401) {
           router.push('/login')
@@ -123,9 +128,12 @@ export default function EmployeeDashboard() {
         setError(result.error || 'Ошибка загрузки данных')
       }
     } catch (error) {
+      console.error('Error loading employee data:', error)
       setError('Ошибка при загрузке данных')
     } finally {
-      setLoading(false)
+      if (showLoader) {
+        setLoading(false)
+      }
     }
   }
 
@@ -135,8 +143,14 @@ export default function EmployeeDashboard() {
   }
 
   useEffect(() => {
-    loadData()
-    const interval = setInterval(loadData, 30000) // Обновляем каждые 30 секунд
+    // Первая загрузка с показом лоадера
+    loadData(true)
+    
+    // Автообновление каждые 5 минут без показа лоадера
+    const interval = setInterval(() => {
+      loadData(false) // false = не показывать лоадер при фоновых обновлениях
+    }, 300000) // 300000 мс = 5 минут
+    
     return () => clearInterval(interval)
   }, [router])
 
@@ -187,10 +201,29 @@ export default function EmployeeDashboard() {
                 {loading && (
                   <RefreshCw className="w-3 h-3 animate-spin ml-2 text-green-400" />
                 )}
+                {lastUpdated && !loading && (
+                  <span className="ml-3 text-xs text-gray-500 flex items-center">
+                    <RefreshCw className="w-3 h-3 mr-1" />
+                    Обновлено: {lastUpdated.toLocaleTimeString('ru-RU', { 
+                      hour: '2-digit', 
+                      minute: '2-digit' 
+                    })}
+                  </span>
+                )}
               </p>
             </div>
             
             <div className="flex gap-3">
+              <Button
+                onClick={() => loadData(true)}
+                variant="outline"
+                className="text-green-400 border-green-400 hover:bg-green-900/20"
+                disabled={loading}
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                Обновить
+              </Button>
+              
               <Button
                 onClick={() => router.push('/profile')}
                 variant="outline"
