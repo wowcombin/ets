@@ -605,7 +605,7 @@ export default function EmployeeDashboard() {
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
               <Activity className="w-5 h-5" />
-              📈 Последние транзакции
+              📈 Успешные транзакции
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -623,10 +623,8 @@ export default function EmployeeDashboard() {
                   </div>
                   
                   <div className="text-right">
-                    <p className={`font-bold ${
-                      transaction.gross_profit_usd >= 0 ? 'text-green-400' : 'text-red-400'
-                    }`}>
-                      ${transaction.gross_profit_usd.toFixed(2)}
+                    <p className="font-bold text-green-400">
+                      +${transaction.gross_profit_usd.toFixed(2)}
                     </p>
                     <p className="text-xs text-gray-400">
                       {new Date(transaction.created_at).toLocaleTimeString('ru-RU', { 

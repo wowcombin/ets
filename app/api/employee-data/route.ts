@@ -136,8 +136,10 @@ export async function GET() {
     // Данные текущего пользователя
     const currentUserStats = employeeStats.find(emp => emp.id === user.id)
     
-    // Последние транзакции (только от сотрудников)
-    const recentTransactions = transactions?.slice(0, 20) || []
+    // Последние транзакции (только от сотрудников, только положительные результаты)
+    const recentTransactions = transactions
+      ?.filter(t => (t.gross_profit_usd || 0) > 0) // Показываем только положительные результаты
+      .slice(0, 20) || []
     
     // Анализ новых аккаунтов (сотрудники с недавней активностью)
     const newAccountsActivity = employees?.map(emp => {
@@ -173,7 +175,7 @@ export async function GET() {
       }
     }).map(emp => ({
       ...emp,
-      topCasino: Object.entries(emp.topCasino).sort(([,a], [,b]) => b - a)[0]?.[0] || 'Нет данных'
+      topCasino: Object.entries(emp.topCasino).sort(([,a], [,b]) => (b as number) - (a as number))[0]?.[0] || 'Нет данных'
     })).sort((a, b) => b.monthlyProfit - a.monthlyProfit) || [] // Сортируем по месячному профиту для соответствия с таблицей лидеров
     
     return NextResponse.json({
