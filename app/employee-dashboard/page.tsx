@@ -23,6 +23,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useRouter } from 'next/navigation'
+import MotivationalTimer from '@/components/MotivationalTimer'
+import AchievementBadges from '@/components/AchievementBadges'
 
 interface EmployeeData {
   month: string
@@ -288,6 +290,12 @@ export default function EmployeeDashboard() {
       </header>
 
       <div className="container mx-auto px-6 py-8">
+        {/* Motivational Timer */}
+        <MotivationalTimer userStats={myStats} />
+        
+        {/* Achievement Badges */}
+        <AchievementBadges userStats={myStats} />
+        
         {/* Personal Earnings Card */}
         {myStats && (
           <Card className="bg-gradient-to-r from-green-900/30 to-emerald-900/30 border-green-500/50 mb-8 shadow-xl">
