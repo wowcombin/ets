@@ -29,6 +29,39 @@ export async function POST(request: Request) {
     
     const supabase = getServiceSupabase()
     
+    // Автоматически создаем таблицу если её нет
+    try {
+      await supabase.rpc('exec_sql', {
+        sql: `
+          CREATE TABLE IF NOT EXISTS usdt_change_requests (
+              id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+              employee_id UUID REFERENCES employees(id) ON DELETE CASCADE,
+              current_address VARCHAR(255),
+              requested_address VARCHAR(255) NOT NULL,
+              requested_network VARCHAR(50) DEFAULT 'BEP20',
+              reason TEXT,
+              status VARCHAR(20) DEFAULT 'pending',
+              approved_by UUID REFERENCES employees(id),
+              approved_at TIMESTAMP WITH TIME ZONE,
+              rejection_reason TEXT,
+              created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
+              updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
+          );
+          
+          ALTER TABLE usdt_change_requests ENABLE ROW LEVEL SECURITY;
+          
+          CREATE POLICY IF NOT EXISTS "Enable read access for all users" ON usdt_change_requests FOR SELECT USING (true);
+          CREATE POLICY IF NOT EXISTS "Enable insert for service role" ON usdt_change_requests FOR INSERT WITH CHECK (auth.role() = 'service_role');
+          CREATE POLICY IF NOT EXISTS "Enable update for service role" ON usdt_change_requests FOR UPDATE USING (auth.role() = 'service_role');
+          CREATE POLICY IF NOT EXISTS "Enable delete for service role" ON usdt_change_requests FOR DELETE USING (auth.role() = 'service_role');
+        `
+      })
+      console.log('USDT change requests table created/verified')
+    } catch (tableError) {
+      console.error('Error creating USDT table:', tableError)
+      // Продолжаем выполнение даже если создание таблицы не удалось
+    }
+    
     // Проверяем, есть ли уже активный запрос
     const { data: existingRequest, error: checkError } = await supabase
       .from('usdt_change_requests')

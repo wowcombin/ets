@@ -80,6 +80,8 @@ interface EmployeeData {
     has_withdrawal: boolean
     card_number: string
     created_at: string
+    display_time: string
+    is_recent: boolean
     update_type: 'complete' | 'deposit' | 'withdrawal'
   }>
   accountsActivity: Array<{
@@ -774,14 +776,19 @@ export default function EmployeeDashboard() {
                     <p className="text-xs text-gray-400">
                       ({update.raw_profit >= 0 ? '+' : ''}${update.raw_profit.toFixed(2)} × 1.3)
                     </p>
-                    <p className="text-xs text-gray-500">
-                      {new Date(update.created_at).toLocaleString('ru-RU', { 
-                        day: '2-digit',
-                        month: '2-digit',
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                      })}
-                    </p>
+                    <div className="text-xs text-gray-500">
+                      <div className={update.is_recent ? 'text-green-400 font-medium' : ''}>
+                        {new Date(update.display_time).toLocaleString('ru-RU', { 
+                          day: '2-digit',
+                          month: '2-digit',
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}
+                      </div>
+                      {update.is_recent && (
+                        <div className="text-green-400 text-xs">🆕 Новое</div>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

@@ -188,7 +188,12 @@ export async function GET() {
         const hasWithdrawal = (t.withdrawal_usd || 0) > 0
         return hasDeposit || hasWithdrawal
       })
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) // Сортируем по времени
+      .sort((a, b) => {
+        // Сортируем по времени синхронизации (самые свежие сверху)
+        const timeA = new Date(a.sync_timestamp || a.created_at).getTime()
+        const timeB = new Date(b.sync_timestamp || b.created_at).getTime()
+        return timeB - timeA
+      })
       .slice(0, 20)
       .map(t => {
         // Рассчитываем по формуле (вывод - депозит) * 1.3
@@ -202,7 +207,9 @@ export async function GET() {
           calculated_profit: adjustedProfit,
           has_deposit: deposit > 0,
           has_withdrawal: withdrawal > 0,
-          raw_profit: profit
+          raw_profit: profit,
+          display_time: t.sync_timestamp || t.created_at, // Время когда данные попали в нашу систему
+          is_recent: (new Date().getTime() - new Date(t.sync_timestamp || t.created_at).getTime()) < 3600000 // Новое если меньше часа
         }
       }) || []
     

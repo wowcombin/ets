@@ -29,6 +29,8 @@ CREATE TABLE IF NOT EXISTS transactions (
     card_number VARCHAR(20),
     gross_profit_usd DECIMAL(10,2) DEFAULT 0,
     net_profit_usd DECIMAL(10,2) DEFAULT 0,
+    last_updated TIMESTAMP WITH TIME ZONE, -- время последнего обновления в Google Sheets
+    sync_timestamp TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()), -- время синхронизации с нашей системой
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
 );
