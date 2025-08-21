@@ -68,9 +68,16 @@ export async function GET() {
         } : null,
         rank: 0 // будет установлен позже
       }
-    }).sort((a, b) => b.totalGross - a.totalGross) || []
+    }) || []
     
-    // Устанавливаем ранги
+    // Сортируем по итоговой зарплате (total_salary), а не по профиту
+    employeeStats.sort((a, b) => {
+      const salaryA = a.salary?.total_salary || 0
+      const salaryB = b.salary?.total_salary || 0
+      return salaryB - salaryA
+    })
+    
+    // Устанавливаем ранги после сортировки по зарплате
     employeeStats.forEach((emp, index) => {
       emp.rank = index + 1
     })
@@ -108,6 +115,41 @@ export async function GET() {
     // Последние транзакции (только от сотрудников)
     const recentTransactions = transactions?.slice(0, 20) || []
     
+    // Анализ новых аккаунтов (сотрудники с недавней активностью)
+    const newAccountsActivity = employees?.map(emp => {
+      const empTransactions = transactions?.filter(t => t.employee_id === emp.id) || []
+      const latestTransaction = empTransactions.sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      )[0]
+      
+      const recentProfit = empTransactions
+        .filter(t => {
+          const transDate = new Date(t.created_at)
+          const weekAgo = new Date()
+          weekAgo.setDate(weekAgo.getDate() - 7)
+          return transDate >= weekAgo
+        })
+        .reduce((sum, t) => sum + (t.gross_profit_usd || 0), 0)
+      
+      return {
+        username: emp.username,
+        isActive: emp.is_active,
+        latestActivity: latestTransaction?.created_at,
+        weeklyProfit: recentProfit,
+        totalTransactions: empTransactions.length,
+        averageProfit: empTransactions.length > 0 ? 
+          empTransactions.reduce((sum, t) => sum + (t.gross_profit_usd || 0), 0) / empTransactions.length : 0,
+        topCasino: empTransactions.reduce((acc, t) => {
+          if (!acc[t.casino_name]) acc[t.casino_name] = 0
+          acc[t.casino_name] += t.gross_profit_usd || 0
+          return acc
+        }, {} as Record<string, number>)
+      }
+    }).map(emp => ({
+      ...emp,
+      topCasino: Object.entries(emp.topCasino).sort(([,a], [,b]) => b - a)[0]?.[0] || 'Нет данных'
+    })).sort((a, b) => b.weeklyProfit - a.weeklyProfit) || []
+    
     return NextResponse.json({
       success: true,
       data: {
@@ -135,7 +177,9 @@ export async function GET() {
           withdrawal_usd: t.withdrawal_usd,
           card_number: t.card_number,
           created_at: t.created_at
-        }))
+        })),
+        accountsActivity: newAccountsActivity.slice(0, 10), // Топ-10 активных аккаунтов
+        weeklyLeaders: newAccountsActivity.filter(emp => emp.weeklyProfit > 0).slice(0, 5) // Топ-5 за неделю
       }
     })
     
