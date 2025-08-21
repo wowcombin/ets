@@ -19,7 +19,8 @@ const publicPaths = [
   '/api/employee-data-public',
   '/api/force-calculate-salaries',
   '/api/force-sync',
-  '/api/usdt-change-request'
+  '/api/usdt-change-request',
+  '/api/create-usdt-table'
 ]
 
 export function middleware(request: NextRequest) {

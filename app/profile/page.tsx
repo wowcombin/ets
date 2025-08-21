@@ -188,11 +188,21 @@ export default function ProfilePage() {
                   value={usdtAddress}
                   onChange={(e) => setUsdtAddress(e.target.value)}
                   placeholder="0x..."
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  readOnly={!!user?.usdt_address}
+                  className={`w-full px-3 py-2 border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    user?.usdt_address 
+                      ? 'bg-gray-600 border-gray-500 cursor-not-allowed' 
+                      : 'bg-gray-700 border-gray-600'
+                  }`}
                 />
                 <p className="mt-2 text-xs text-gray-400">
                   Укажите адрес кошелька в сети BSC (Binance Smart Chain)
                 </p>
+                {user?.usdt_address && (
+                  <p className="mt-2 text-xs text-yellow-400">
+                    💡 Для изменения адреса введите новый адрес и нажмите "Запросить изменение"
+                  </p>
+                )}
               </div>
               
               {error && (
@@ -215,7 +225,7 @@ export default function ProfilePage() {
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 <Save className="w-4 h-4 mr-2" />
-                {saving ? 'Сохранение...' : 'Сохранить адрес'}
+                {saving ? 'Сохранение...' : user?.usdt_address ? 'Запросить изменение' : 'Сохранить адрес'}
               </Button>
             </div>
           </CardContent>

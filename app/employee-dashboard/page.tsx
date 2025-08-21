@@ -699,7 +699,7 @@ export default function EmployeeDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {data?.recentUpdates.slice(0, 10).map((update, index) => (
+              {data?.recentUpdates?.slice(0, 10).map((update, index) => (
                 <div key={update.id} className="flex items-center justify-between p-3 bg-gray-700/30 rounded-lg border border-gray-600">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-xs font-bold">
