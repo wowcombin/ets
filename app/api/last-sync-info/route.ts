@@ -11,7 +11,7 @@ export async function GET() {
     // Получаем последнюю транзакцию для определения времени последней синхронизации
     const { data: lastTransaction, error } = await supabase
       .from('transactions')
-      .select('created_at, employee:employees(username), casino_name, gross_profit_usd')
+      .select('created_at, employee_id, casino_name, gross_profit_usd, employee:employees!inner(username)')
       .eq('month', currentMonth)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -42,7 +42,7 @@ export async function GET() {
       data: {
         lastSync: lastTransaction ? {
           time: lastTransaction.created_at,
-          employee: lastTransaction.employee?.username,
+          employee: Array.isArray(lastTransaction.employee) ? lastTransaction.employee[0]?.username : lastTransaction.employee?.username,
           casino: lastTransaction.casino_name,
           profit: lastTransaction.gross_profit_usd,
           timeAgo: Math.round((new Date().getTime() - new Date(lastTransaction.created_at).getTime()) / (1000 * 60)) // минут назад
