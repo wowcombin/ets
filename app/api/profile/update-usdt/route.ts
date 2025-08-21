@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase/client'
-import { requireAuth, validateUsdtAddress } from '@/lib/auth'
+import { requireSimpleAuth } from '@/lib/simple-auth'
+import { validateUsdtAddress } from '@/lib/auth'
 
 export async function POST(request: Request) {
   try {
-    const user = await requireAuth()
+    const user = await requireSimpleAuth()
     
     const { usdt_address } = await request.json()
     

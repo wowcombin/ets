@@ -207,9 +207,17 @@ export async function GET() {
           created_at: t.created_at
         })),
         accountsActivity: newAccountsActivity.slice(0, 10), // Топ-10 активных аккаунтов
-        weeklyLeaders: newAccountsActivity.filter(emp => emp.weeklyProfit > 0).slice(0, 5) // Топ-5 за неделю
+        weeklyLeaders: newAccountsActivity.filter(emp => emp.weeklyProfit > 0).slice(0, 5), // Топ-5 за неделю
+        lastUpdated: new Date().toISOString()
       }
     })
+    
+    // Добавляем заголовки для предотвращения кэширования
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+    response.headers.set('Pragma', 'no-cache')
+    response.headers.set('Expires', '0')
+    
+    return response
     
   } catch (error: any) {
     if (error.message === 'Не авторизован') {

@@ -113,7 +113,13 @@ export default function EmployeeDashboard() {
     }
     setError(null)
     try {
-      const response = await fetch('/api/employee-data')
+      const response = await fetch('/api/employee-data', {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      })
       const result = await response.json()
       
       if (result.success) {
