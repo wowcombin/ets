@@ -50,7 +50,7 @@ export async function POST() {
     const currentTime = new Date()
     
     // Проверяем каждую папку сотрудника
-    for (const folder of folders.data.files || []) {
+    for (const folder of folders.files || []) {
       const folderName = folder.name || ''
       
       // Пропускаем уволенных
@@ -79,7 +79,7 @@ export async function POST() {
           fields: 'files(id, name)'
         })
         
-        const workFile = workFiles.files?.[0]
+        const workFile = workFiles?.files?.[0]
         if (!workFile) continue
         
         // Читаем данные из листа August
