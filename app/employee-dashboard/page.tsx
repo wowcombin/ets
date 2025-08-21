@@ -776,18 +776,7 @@ export default function EmployeeDashboard() {
                     <div>
                       <p className="font-medium text-white">{update.employee}</p>
                       <p className="text-sm text-gray-400">{update.casino_name}</p>
-                      <div className="flex gap-1 mt-1">
-                        {update.has_deposit && (
-                          <span className="text-xs bg-blue-600 text-blue-100 px-2 py-1 rounded">
-                            📥 ${update.deposit_usd.toFixed(0)}
-                          </span>
-                        )}
-                        {update.has_withdrawal && (
-                          <span className="text-xs bg-green-600 text-green-100 px-2 py-1 rounded">
-                            📤 ${update.withdrawal_usd.toFixed(0)}
-                          </span>
-                        )}
-                      </div>
+
                     </div>
                   </div>
                   
@@ -797,21 +786,23 @@ export default function EmployeeDashboard() {
                     }`}>
                       {update.calculated_profit >= 0 ? '+' : ''}${update.calculated_profit.toFixed(2)}
                     </p>
-                    <p className="text-xs text-gray-400">
-                      ({update.raw_profit >= 0 ? '+' : ''}${update.raw_profit.toFixed(2)} × 1.3)
-                    </p>
                     <div className="text-xs text-gray-500">
-                      <div className={update.is_recent ? 'text-green-400 font-medium' : ''}>
-                        {new Date(update.display_time).toLocaleString('ru-RU', { 
-                          day: '2-digit',
-                          month: '2-digit',
-                          hour: '2-digit', 
-                          minute: '2-digit' 
-                        })}
-                      </div>
-                      {update.is_recent && (
-                        <div className="text-green-400 text-xs">🆕 Новое</div>
-                      )}
+                      {(() => {
+                        const now = new Date().getTime()
+                        const updateTime = new Date(update.display_time).getTime()
+                        const minutesAgo = Math.round((now - updateTime) / (1000 * 60))
+                        
+                        if (minutesAgo <= 10) {
+                          return <span className="text-green-400 font-medium">{minutesAgo === 0 ? 'сейчас' : `${minutesAgo} мин назад`}</span>
+                        } else {
+                          return <span>{new Date(update.display_time).toLocaleString('ru-RU', { 
+                            day: '2-digit',
+                            month: '2-digit',
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}</span>
+                        }
+                      })()}
                     </div>
                   </div>
                 </div>

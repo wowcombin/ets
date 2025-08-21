@@ -48,28 +48,6 @@ export default function ProfilePage() {
     setSaving(true)
     
     try {
-      // Если адрес уже установлен, создаем запрос на изменение
-      if (user?.usdt_address && user.usdt_address !== usdtAddress.trim()) {
-        const response = await fetch('/api/usdt-change-request', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            requested_address: usdtAddress.trim(),
-            reason: 'Изменение адреса кошелька'
-          })
-        })
-        
-        const data = await response.json()
-        
-        if (data.success) {
-          setSuccess('Запрос на изменение адреса отправлен менеджерам! Ожидайте одобрения.')
-        } else {
-          setError(data.error || 'Ошибка отправки запроса')
-        }
-        return
-      }
-      
-      // Если адрес не установлен, сохраняем напрямую
       const response = await fetch('/api/profile/update-usdt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -194,11 +172,7 @@ export default function ProfilePage() {
                 <p className="mt-2 text-xs text-gray-400">
                   Укажите адрес кошелька в сети BSC (Binance Smart Chain)
                 </p>
-                {user?.usdt_address && (
-                  <p className="mt-2 text-xs text-yellow-400">
-                    💡 Для изменения адреса введите новый адрес и нажмите "Запросить изменение"
-                  </p>
-                )}
+
               </div>
               
               {error && (
@@ -221,7 +195,7 @@ export default function ProfilePage() {
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 <Save className="w-4 h-4 mr-2" />
-                {saving ? 'Сохранение...' : user?.usdt_address ? 'Запросить изменение' : 'Сохранить адрес'}
+                {saving ? 'Сохранение...' : 'Сохранить адрес'}
               </Button>
             </div>
           </CardContent>
