@@ -139,6 +139,7 @@ export async function GET() {
     // Последние транзакции (только от сотрудников, только положительные результаты)
     const recentTransactions = transactions
       ?.filter(t => (t.gross_profit_usd || 0) > 0) // Показываем только положительные результаты
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) // Сортируем по времени
       .slice(0, 20) || []
     
     // Анализ новых аккаунтов (сотрудники с недавней активностью)
@@ -204,7 +205,12 @@ export async function GET() {
           deposit_usd: t.deposit_usd,
           withdrawal_usd: t.withdrawal_usd,
           card_number: t.card_number,
-          created_at: t.created_at
+          created_at: t.created_at,
+          created_at_debug: {
+            original: t.created_at,
+            parsed: new Date(t.created_at).toISOString(),
+            formatted: new Date(t.created_at).toLocaleString('ru-RU')
+          }
         })),
         accountsActivity: newAccountsActivity.slice(0, 10), // Топ-10 активных аккаунтов
         weeklyLeaders: newAccountsActivity.filter(emp => emp.weeklyProfit > 0).slice(0, 5), // Топ-5 за неделю

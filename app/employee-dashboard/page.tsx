@@ -382,9 +382,9 @@ export default function EmployeeDashboard() {
                 
                 <div className="text-center">
                   <div className="text-3xl font-bold text-green-400 mb-2">
-                    ${myStats.totalGross.toFixed(2)}
+                    ${myStats?.salary?.total_salary?.toFixed(2) || myStats.totalGross.toFixed(2)}
                   </div>
-                  <p className="text-sm text-gray-300">Ваш профит</p>
+                  <p className="text-sm text-gray-300">Ваш заработок</p>
                 </div>
                 
                 <div className="text-center">
@@ -537,7 +537,7 @@ export default function EmployeeDashboard() {
                     <div className={`text-3xl font-bold mb-3 ${
                       index === 0 ? 'text-yellow-400' : index === 1 ? 'text-gray-400' : 'text-orange-400'
                     }`}>
-                      ${leader.totalGross.toFixed(2)}
+                      ${leader.salary?.total_salary?.toFixed(2) || '0.00'}
                     </div>
                     <div className="text-sm text-gray-300 space-y-1">
                       <div>🎯 {leader.transactionCount} транзакций</div>
@@ -610,7 +610,7 @@ export default function EmployeeDashboard() {
                         </div>
                       </td>
                       <td className="py-3 px-4 text-right font-bold text-green-400">
-                        ${employee.totalGross.toFixed(2)}
+                        ${employee.salary?.total_salary?.toFixed(2) || '0.00'}
                       </td>
                       <td className="py-3 px-4 text-right">{employee.transactionCount}</td>
                       <td className="py-3 px-4 text-right">{employee.casinoCount}</td>
