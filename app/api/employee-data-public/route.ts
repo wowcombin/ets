@@ -19,21 +19,27 @@ export async function GET() {
     
     // Фильтруем сотрудников: исключаем уволенных и без WORK папки
     const employees = allEmployees?.filter(emp => {
+      console.log(`Checking employee ${emp.username}: active=${emp.is_active}, folder_id=${emp.folder_id}`)
+      
       // Исключаем уволенных (username содержит УВОЛЕН)
       if (emp.username.includes('УВОЛЕН')) {
+        console.log(`Excluding fired: ${emp.username}`)
         return false
       }
       
       // Исключаем неактивных
       if (!emp.is_active) {
+        console.log(`Excluding inactive: ${emp.username}`)
         return false
       }
       
       // Проверяем наличие folder_id (означает что есть папка WORK)
       if (!emp.folder_id) {
+        console.log(`Excluding no WORK folder: ${emp.username}`)
         return false
       }
       
+      console.log(`Including: ${emp.username}`)
       return true
     }) || []
     
@@ -42,9 +48,11 @@ export async function GET() {
       throw empError
     }
     
-    console.log('Found employees:', employees?.length)
+    console.log('Found employees after filtering:', employees?.length)
+    const employeeIds = employees?.map(e => e.id) || []
+    console.log('Employee IDs:', employeeIds.length)
     
-    // Получаем транзакции с пагинацией
+    // Получаем транзакции с пагинацией ТОЛЬКО для отфильтрованных сотрудников
     let allTransactions: any[] = []
     let from = 0
     const limit = 1000
@@ -55,6 +63,7 @@ export async function GET() {
         .from('transactions')
         .select('*, employee:employees(username, is_manager)')
         .eq('month', currentMonth)
+        .in('employee_id', employeeIds) // Получаем только транзакции отфильтрованных сотрудников
         .range(from, from + limit - 1)
         .order('created_at', { ascending: false })
       
@@ -73,13 +82,10 @@ export async function GET() {
     }
     
     const transactions = allTransactions
-    console.log('Total transactions fetched:', transactions.length)
+    console.log('Total transactions fetched for active employees:', transactions.length)
     
-    // Фильтруем только транзакции сотрудников
-    const employeeIds = employees?.map(e => e.id) || []
-    const employeeTransactions = transactions.filter(t => 
-      employeeIds.includes(t.employee_id) && !t.employee?.is_manager
-    )
+    // Все транзакции уже от правильных сотрудников
+    const employeeTransactions = transactions
     
     console.log('Employee transactions:', employeeTransactions.length)
     
@@ -164,13 +170,9 @@ export async function GET() {
       emp.rank = index + 1
     })
     
-    // Последние обновления от ВСЕХ сотрудников (где есть заполненные клетки > 0)
-    const recentUpdates = transactions // Используем ВСЕ транзакции, не только employeeTransactions
+    // Последние обновления от отфильтрованных сотрудников (где есть заполненные клетки > 0)
+    const recentUpdates = employeeTransactions // Используем транзакции уже отфильтрованных сотрудников
       .filter(t => {
-        // Показываем только транзакции активных сотрудников
-        const isActiveEmployee = employees.some(emp => emp.id === t.employee_id)
-        if (!isActiveEmployee) return false
-        
         // Показываем записи где есть депозит > 0 ИЛИ вывод > 0
         const hasDeposit = (t.deposit_usd || 0) > 0
         const hasWithdrawal = (t.withdrawal_usd || 0) > 0
