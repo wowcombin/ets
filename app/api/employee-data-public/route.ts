@@ -11,12 +11,31 @@ export async function GET() {
     
     console.log('PUBLIC Employee data API called for month:', currentMonth)
     
-    // Получаем всех активных сотрудников (не менеджеров)
-    const { data: employees, error: empError } = await supabase
+    // Получаем активных сотрудников (не менеджеров, не уволенных, с WORK папкой)
+    const { data: allEmployees, error: empError } = await supabase
       .from('employees')
       .select('*')
       .eq('is_manager', false)
-      .eq('is_active', true)
+    
+    // Фильтруем сотрудников: исключаем уволенных и без WORK папки
+    const employees = allEmployees?.filter(emp => {
+      // Исключаем уволенных (username содержит УВОЛЕН)
+      if (emp.username.includes('УВОЛЕН')) {
+        return false
+      }
+      
+      // Исключаем неактивных
+      if (!emp.is_active) {
+        return false
+      }
+      
+      // Проверяем наличие folder_id (означает что есть папка WORK)
+      if (!emp.folder_id) {
+        return false
+      }
+      
+      return true
+    }) || []
     
     if (empError) {
       console.error('Employees error:', empError)
@@ -145,9 +164,14 @@ export async function GET() {
       emp.rank = index + 1
     })
     
-    // Последние обновления (где есть заполненные клетки > 0)
-    const recentUpdates = employeeTransactions
+    // Последние обновления от ВСЕХ сотрудников (где есть заполненные клетки > 0)
+    const recentUpdates = transactions // Используем ВСЕ транзакции, не только employeeTransactions
       .filter(t => {
+        // Показываем только транзакции активных сотрудников
+        const isActiveEmployee = employees.some(emp => emp.id === t.employee_id)
+        if (!isActiveEmployee) return false
+        
+        // Показываем записи где есть депозит > 0 ИЛИ вывод > 0
         const hasDeposit = (t.deposit_usd || 0) > 0
         const hasWithdrawal = (t.withdrawal_usd || 0) > 0
         return hasDeposit || hasWithdrawal
@@ -213,7 +237,7 @@ export async function GET() {
           allTransactionsCount: transactions.length,
           employeeTransactionsCount: employeeTransactions.length,
           salariesCount: salaries?.length,
-          recentTransactionsCount: recentTransactions.length
+          recentUpdatesCount: recentUpdates.length
         }
       }
     })
