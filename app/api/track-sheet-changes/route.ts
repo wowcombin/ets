@@ -84,7 +84,7 @@ export async function POST() {
         
         // Читаем данные из листа August
         const sheetResponse = await sheets.spreadsheets.values.get({
-          spreadsheetId: workFile.id,
+          spreadsheetId: workFile.id!,
           range: 'August!A:D',
         })
         
