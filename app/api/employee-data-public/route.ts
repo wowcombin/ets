@@ -65,7 +65,7 @@ export async function GET() {
     console.log('Employee transactions:', employeeTransactions.length)
     
     // Получаем зарплаты
-    const { data: salaries, error: salError } = await supabase
+    let { data: salaries, error: salError } = await supabase
       .from('salaries')
       .select('*, employee:employees(username, is_manager)')
       .eq('month', currentMonth)
