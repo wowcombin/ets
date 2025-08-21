@@ -126,8 +126,12 @@ export default function EmployeeDashboard() {
         setData(result.data)
         setLastUpdated(new Date())
         console.log('Employee data updated:', new Date().toLocaleTimeString())
+        console.log('Recent transactions count:', result.data.recentTransactions?.length || 0)
+        console.log('Sample transaction:', result.data.recentTransactions?.[0])
       } else {
+        console.error('Employee data API error:', result)
         if (response.status === 401) {
+          console.log('Unauthorized - redirecting to login')
           router.push('/login')
           return
         }
@@ -135,7 +139,7 @@ export default function EmployeeDashboard() {
       }
     } catch (error) {
       console.error('Error loading employee data:', error)
-      setError('Ошибка при загрузке данных')
+      setError(`Ошибка при загрузке данных: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       if (showLoader) {
         setLoading(false)
@@ -671,7 +675,9 @@ export default function EmployeeDashboard() {
                       +${transaction.gross_profit_usd.toFixed(2)}
                     </p>
                     <p className="text-xs text-gray-400">
-                      {new Date(transaction.created_at).toLocaleTimeString('ru-RU', { 
+                      {new Date(transaction.created_at).toLocaleString('ru-RU', { 
+                        day: '2-digit',
+                        month: '2-digit',
                         hour: '2-digit', 
                         minute: '2-digit' 
                       })}
