@@ -136,26 +136,30 @@ export async function POST() {
     // Сохраняем информацию об изменениях в отдельную таблицу
     if (newUpdates.length > 0) {
       // Создаем таблицу для отслеживания изменений если её нет
-      await supabase.rpc('exec_sql', {
-        sql: `
-          CREATE TABLE IF NOT EXISTS sheet_changes (
-              id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-              employee_id UUID REFERENCES employees(id),
-              username VARCHAR(255),
-              casino_name VARCHAR(255),
-              card_number VARCHAR(255),
-              deposit_usd DECIMAL(10,2),
-              withdrawal_usd DECIMAL(10,2),
-              gross_profit_usd DECIMAL(10,2),
-              change_detected_at TIMESTAMP WITH TIME ZONE,
-              is_new BOOLEAN DEFAULT true,
-              created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
-          );
-          
-          CREATE INDEX IF NOT EXISTS idx_sheet_changes_detected ON sheet_changes(change_detected_at);
-          CREATE INDEX IF NOT EXISTS idx_sheet_changes_employee ON sheet_changes(employee_id);
-        `
-      }).catch(e => console.log('Table might already exist:', e))
+      try {
+        await supabase.rpc('exec_sql', {
+          sql: `
+            CREATE TABLE IF NOT EXISTS sheet_changes (
+                id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+                employee_id UUID REFERENCES employees(id),
+                username VARCHAR(255),
+                casino_name VARCHAR(255),
+                card_number VARCHAR(255),
+                deposit_usd DECIMAL(10,2),
+                withdrawal_usd DECIMAL(10,2),
+                gross_profit_usd DECIMAL(10,2),
+                change_detected_at TIMESTAMP WITH TIME ZONE,
+                is_new BOOLEAN DEFAULT true,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
+            );
+            
+            CREATE INDEX IF NOT EXISTS idx_sheet_changes_detected ON sheet_changes(change_detected_at);
+            CREATE INDEX IF NOT EXISTS idx_sheet_changes_employee ON sheet_changes(employee_id);
+          `
+        })
+      } catch (e) {
+        console.log('Table might already exist:', e)
+      }
       
       // Вставляем новые изменения
       const { error: insertError } = await supabase
