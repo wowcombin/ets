@@ -170,7 +170,7 @@ export default function EmployeeDashboard() {
       <div className="flex items-center justify-center min-h-screen bg-gray-900">
         <div className="text-center">
           <p className="text-red-400 mb-4">{error}</p>
-          <Button onClick={loadData} className="bg-blue-600 hover:bg-blue-700">
+          <Button onClick={() => loadData(true)} className="bg-blue-600 hover:bg-blue-700">
             Попробовать снова
           </Button>
         </div>
