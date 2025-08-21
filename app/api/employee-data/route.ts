@@ -11,12 +11,31 @@ export async function GET() {
     const supabase = getServiceSupabase()
     const currentMonth = `${new Date().getFullYear()}-${(new Date().getMonth() + 1).toString().padStart(2, '0')}`
     
-    // Получаем ВСЕХ сотрудников (не менеджеров), включая тех у кого нет листа WORK
-    const { data: employees, error: empError } = await supabase
+    // Получаем активных сотрудников (не менеджеров, не уволенных, с WORK папкой)
+    const { data: allEmployees, error: empError } = await supabase
       .from('employees')
       .select('*')
       .eq('is_manager', false)
-      // Убираем фильтр по is_active чтобы показать всех сотрудников
+    
+    // Фильтруем сотрудников: исключаем уволенных и без WORK папки
+    const employees = allEmployees?.filter(emp => {
+      // Исключаем уволенных (username содержит УВОЛЕН)
+      if (emp.username.includes('УВОЛЕН')) {
+        return false
+      }
+      
+      // Исключаем неактивных
+      if (!emp.is_active) {
+        return false
+      }
+      
+      // Проверяем наличие folder_id (означает что есть папка WORK)
+      if (!emp.folder_id) {
+        return false
+      }
+      
+      return true
+    }) || []
     
     if (empError) throw empError
     
