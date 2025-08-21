@@ -309,24 +309,26 @@ export default function EmployeeDashboard() {
                       <p className="text-sm text-gray-400">Базовая зарплата (10%)</p>
                     </div>
                     
-                    {(myStats.salary.bonus || 0) > 0 && (
-                      <div className="bg-gray-800/50 rounded-lg p-4">
-                        <div className="text-2xl font-bold text-green-400">
-                          +${myStats.salary.bonus?.toFixed(2) || '0.00'}
-                        </div>
-                        <p className="text-sm text-gray-400">Бонус за результат</p>
+                                      {(myStats.salary.bonus || 0) > 0 && (
+                    <div className="bg-gray-800/50 rounded-lg p-4">
+                      <div className="text-2xl font-bold text-green-400">
+                        +${myStats.salary.bonus?.toFixed(2) || '0.00'}
                       </div>
-                    )}
+                      <p className="text-sm text-gray-400">Бонус $200</p>
+                      <p className="text-xs text-gray-500">За брутто ≥ $200</p>
+                    </div>
+                  )}
                     
-                    {(myStats.salary.leader_bonus || 0) > 0 && (
-                      <div className="bg-gray-800/50 rounded-lg p-4">
-                        <div className="text-2xl font-bold text-yellow-400 flex items-center justify-center gap-2">
-                          <Trophy className="w-5 h-5" />
-                          +${myStats.salary.leader_bonus?.toFixed(2) || '0.00'}
-                        </div>
-                        <p className="text-sm text-gray-400">Лидер месяца</p>
+                                      {(myStats.salary.leader_bonus || 0) > 0 && (
+                    <div className="bg-gray-800/50 rounded-lg p-4">
+                      <div className="text-2xl font-bold text-yellow-400 flex items-center justify-center gap-2">
+                        <Trophy className="w-5 h-5" />
+                        +${myStats.salary.leader_bonus?.toFixed(2) || '0.00'}
                       </div>
-                    )}
+                      <p className="text-sm text-gray-400">Бонус лидера</p>
+                      <p className="text-xs text-gray-500">10% от макс. транзакции</p>
+                    </div>
+                  )}
                   </div>
                 ) : (
                   <div className="bg-gray-800/50 rounded-lg p-6 max-w-md mx-auto">

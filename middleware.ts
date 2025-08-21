@@ -18,7 +18,8 @@ const publicPaths = [
   '/api/create-sessions-table',
   '/api/employee-data-public',
   '/api/force-calculate-salaries',
-  '/api/force-sync'
+  '/api/force-sync',
+  '/api/usdt-change-request'
 ]
 
 export function middleware(request: NextRequest) {

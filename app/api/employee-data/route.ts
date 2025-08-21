@@ -68,7 +68,7 @@ export async function GET() {
     // Рассчитываем статистику без расходов и данных менеджеров
     const totalGross = transactions?.reduce((sum, t) => sum + (t.gross_profit_usd || 0), 0) || 0
     
-    // Статистика по сотрудникам
+    // Статистика по сотрудникам с расчетом заработка на лету
     const employeeStats = employees?.map(emp => {
       const empTransactions = transactions?.filter(t => t.employee_id === emp.id) || []
       const empSalary = salaries?.find(s => s.employee_id === emp.id)
@@ -76,6 +76,28 @@ export async function GET() {
       const totalEmpGross = empTransactions.reduce((sum, t) => sum + (t.gross_profit_usd || 0), 0)
       const transactionCount = empTransactions.length
       const casinoCount = new Set(empTransactions.map(t => t.casino_name)).size
+      
+      // Рассчитываем заработок на лету если зарплата не рассчитана
+      let calculatedSalary = null
+      if (!empSalary && totalEmpGross > 0) {
+        const baseSalary = totalEmpGross * 0.1 // 10% от брутто
+        const bonus = totalEmpGross >= 200 ? 200 : 0 // $200 если брутто >= $200
+        
+        // Находим максимальную транзакцию для бонуса лидера
+        const maxTransaction = Math.max(...empTransactions.map(t => t.gross_profit_usd || 0))
+        const leaderBonus = maxTransaction > 0 ? maxTransaction * 0.1 : 0 // 10% от макс транзакции
+        
+        const totalSalary = baseSalary + bonus + leaderBonus
+        
+        calculatedSalary = {
+          base_salary: baseSalary,
+          bonus: bonus,
+          leader_bonus: leaderBonus,
+          total_salary: totalSalary,
+          is_paid: false,
+          calculated_on_fly: true
+        }
+      }
       
       return {
         id: emp.id,
@@ -88,8 +110,9 @@ export async function GET() {
           bonus: empSalary.bonus,
           leader_bonus: empSalary.leader_bonus,
           total_salary: empSalary.total_salary,
-          is_paid: empSalary.is_paid
-        } : null,
+          is_paid: empSalary.is_paid,
+          calculated_on_fly: false
+        } : calculatedSalary,
         rank: 0 // будет установлен позже
       }
     }) || []
