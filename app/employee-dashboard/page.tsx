@@ -230,7 +230,7 @@ export default function EmployeeDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-blue-400">
-                {data?.leaderboard.filter(item => item.is_active).length || 0}
+                {data?.leaderboard.length || 0}
               </div>
               <p className="text-sm text-gray-400 mt-2">
                 Работают в этом месяце
