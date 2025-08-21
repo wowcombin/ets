@@ -20,16 +20,40 @@ export async function GET() {
     
     if (empError) throw empError
     
-    // Получаем транзакции только сотрудников
+    // ВАЖНО: Получаем ВСЕ транзакции сотрудников используя пагинацию
     const employeeIds = employees?.map(e => e.id) || []
-    const { data: transactions, error: transError } = await supabase
-      .from('transactions')
-      .select('*, employee:employees(username, is_manager)')
-      .eq('month', currentMonth)
-      .in('employee_id', employeeIds)
-      .order('created_at', { ascending: false })
+    console.log('Fetching ALL employee transactions with pagination...')
+    let allTransactions: any[] = []
+    let from = 0
+    const limit = 1000
+    let hasMore = true
     
-    if (transError) throw transError
+    while (hasMore) {
+      const { data: batch, error: batchError } = await supabase
+        .from('transactions')
+        .select('*, employee:employees(username, is_manager)')
+        .eq('month', currentMonth)
+        .in('employee_id', employeeIds)
+        .range(from, from + limit - 1)
+        .order('created_at', { ascending: false })
+      
+      if (batchError) {
+        console.error(`Error fetching employee batch from ${from}:`, batchError)
+        break
+      }
+      
+      if (batch && batch.length > 0) {
+        allTransactions = [...allTransactions, ...batch]
+        console.log(`Employee batch: ${from} to ${from + batch.length - 1}, total so far: ${allTransactions.length}`)
+        from += limit
+        hasMore = batch.length === limit
+      } else {
+        hasMore = false
+      }
+    }
+    
+    const transactions = allTransactions
+    console.log(`Total employee transactions fetched: ${transactions.length}`)
     
     // Получаем зарплаты только сотрудников
     const { data: salaries, error: salError } = await supabase
@@ -131,14 +155,16 @@ export async function GET() {
         })
         .reduce((sum, t) => sum + (t.gross_profit_usd || 0), 0)
       
+      const monthlyProfit = empTransactions.reduce((sum, t) => sum + (t.gross_profit_usd || 0), 0)
+      
       return {
         username: emp.username,
         isActive: emp.is_active,
         latestActivity: latestTransaction?.created_at,
         weeklyProfit: recentProfit,
+        monthlyProfit: monthlyProfit, // Добавляем месячный профит для сравнения
         totalTransactions: empTransactions.length,
-        averageProfit: empTransactions.length > 0 ? 
-          empTransactions.reduce((sum, t) => sum + (t.gross_profit_usd || 0), 0) / empTransactions.length : 0,
+        averageProfit: empTransactions.length > 0 ? monthlyProfit / empTransactions.length : 0,
         topCasino: empTransactions.reduce((acc, t) => {
           if (!acc[t.casino_name]) acc[t.casino_name] = 0
           acc[t.casino_name] += t.gross_profit_usd || 0
@@ -148,7 +174,7 @@ export async function GET() {
     }).map(emp => ({
       ...emp,
       topCasino: Object.entries(emp.topCasino).sort(([,a], [,b]) => b - a)[0]?.[0] || 'Нет данных'
-    })).sort((a, b) => b.weeklyProfit - a.weeklyProfit) || []
+    })).sort((a, b) => b.monthlyProfit - a.monthlyProfit) || [] // Сортируем по месячному профиту для соответствия с таблицей лидеров
     
     return NextResponse.json({
       success: true,

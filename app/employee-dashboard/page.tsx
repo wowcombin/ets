@@ -83,6 +83,7 @@ interface EmployeeData {
     isActive: boolean
     latestActivity?: string
     weeklyProfit: number
+    monthlyProfit: number
     totalTransactions: number
     averageProfit: number
     topCasino: string
@@ -586,10 +587,10 @@ export default function EmployeeDashboard() {
                     </div>
                     <div className="text-right">
                       <p className="font-bold text-blue-400">
-                        ${account.weeklyProfit.toFixed(0)}
+                        ${account.monthlyProfit.toFixed(0)}
                       </p>
                       <p className="text-xs text-gray-400">
-                        Ср: ${account.averageProfit.toFixed(0)}
+                        Неделя: ${account.weeklyProfit.toFixed(0)}
                       </p>
                     </div>
                   </div>
