@@ -259,7 +259,7 @@ export default function CardsAnalysisPage() {
                 <TrendingUp className="w-8 h-8 text-yellow-400" />
               </div>
               <p className="text-xs text-gray-500 mt-1">
-                Карт с депозитом > 0
+                Карт с депозитом &gt; 0
               </p>
             </CardContent>
           </Card>

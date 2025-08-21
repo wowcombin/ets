@@ -123,7 +123,7 @@ export default function EmployeeDashboard() {
     loadData()
     const interval = setInterval(loadData, 30000) // Обновляем каждые 30 секунд
     return () => clearInterval(interval)
-  }, [])
+  }, [router])
 
   if (loading && !data) {
     return (

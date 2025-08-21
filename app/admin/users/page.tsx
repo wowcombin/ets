@@ -79,7 +79,7 @@ export default function UsersAdminPage() {
 
   useEffect(() => {
     loadData()
-  }, [])
+  }, [router])
 
   if (loading) {
     return (

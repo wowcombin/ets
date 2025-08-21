@@ -17,7 +17,7 @@ export default function ProfilePage() {
   
   useEffect(() => {
     loadProfile()
-  }, [])
+  }, [router])
   
   const loadProfile = async () => {
     try {
