@@ -145,13 +145,33 @@ export async function GET() {
       emp.rank = index + 1
     })
     
-    // Последние успешные транзакции
-    const recentTransactions = employeeTransactions
-      .filter(t => (t.gross_profit_usd || 0) > 0)
+    // Последние обновления (где есть заполненные клетки > 0)
+    const recentUpdates = employeeTransactions
+      .filter(t => {
+        const hasDeposit = (t.deposit_usd || 0) > 0
+        const hasWithdrawal = (t.withdrawal_usd || 0) > 0
+        return hasDeposit || hasWithdrawal
+      })
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       .slice(0, 20)
+      .map(t => {
+        const deposit = t.deposit_usd || 0
+        const withdrawal = t.withdrawal_usd || 0
+        const profit = withdrawal - deposit
+        const adjustedProfit = profit * 1.3
+        
+        return {
+          ...t,
+          calculated_profit: adjustedProfit,
+          has_deposit: deposit > 0,
+          has_withdrawal: withdrawal > 0,
+          raw_profit: profit,
+          display_time: t.created_at,
+          is_recent: (new Date().getTime() - new Date(t.created_at).getTime()) < 3600000
+        }
+      })
     
-    console.log('Recent positive transactions:', recentTransactions.length)
+    console.log('Recent updates:', recentUpdates.length)
     
     const response = NextResponse.json({
       success: true,
@@ -171,18 +191,21 @@ export async function GET() {
         },
         leaderboard: employeeStats,
         casinoStats: [],
-        recentTransactions: recentTransactions.map(t => ({
+        recentUpdates: recentUpdates.map(t => ({
           id: t.id,
           employee: t.employee?.username,
           casino_name: t.casino_name,
-          gross_profit_usd: t.gross_profit_usd,
+          deposit_usd: t.deposit_usd,
+          withdrawal_usd: t.withdrawal_usd,
+          raw_profit: t.raw_profit,
+          calculated_profit: t.calculated_profit,
+          has_deposit: t.has_deposit,
+          has_withdrawal: t.has_withdrawal,
+          card_number: t.card_number,
           created_at: t.created_at,
-          created_at_debug: {
-            original: t.created_at,
-            parsed: new Date(t.created_at).toISOString(),
-            formatted: new Date(t.created_at).toLocaleString('ru-RU'),
-            timestamp: new Date(t.created_at).getTime()
-          }
+          display_time: t.display_time,
+          is_recent: t.is_recent,
+          update_type: t.has_deposit && t.has_withdrawal ? 'complete' : t.has_deposit ? 'deposit' : 'withdrawal'
         })),
         lastUpdated: new Date().toISOString(),
         debug: {
