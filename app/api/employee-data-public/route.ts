@@ -78,6 +78,35 @@ export async function GET() {
     
     console.log('Salaries found:', salaries?.length)
     
+    // Если зарплаты не найдены, попробуем их рассчитать
+    if (!salaries || salaries.length === 0) {
+      console.log('No salaries found, triggering salary calculation...')
+      try {
+        const calcResponse = await fetch(`${process.env.NEXTAUTH_URL || 'https://etsmo.vercel.app'}/api/calculate-salaries`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        })
+        
+        if (calcResponse.ok) {
+          console.log('Salary calculation triggered successfully')
+          // Перезапрашиваем зарплаты
+          const { data: newSalaries } = await supabase
+            .from('salaries')
+            .select('*, employee:employees(username, is_manager)')
+            .eq('month', currentMonth)
+            .in('employee_id', employeeIds)
+            .order('total_salary', { ascending: false })
+          
+          if (newSalaries) {
+            console.log('New salaries found after calculation:', newSalaries.length)
+            salaries = newSalaries
+          }
+        }
+      } catch (calcError) {
+        console.error('Salary calculation error:', calcError)
+      }
+    }
+    
     // Статистика по сотрудникам
     const employeeStats = employees?.map(emp => {
       const empTransactions = employeeTransactions.filter(t => t.employee_id === emp.id)

@@ -38,15 +38,42 @@ export default function ProfilePage() {
   }
   
   const saveUsdtAddress = async () => {
+    if (!usdtAddress.trim()) {
+      setError('USDT адрес не может быть пустым')
+      return
+    }
+    
     setError('')
     setSuccess('')
     setSaving(true)
     
     try {
+      // Если адрес уже установлен, создаем запрос на изменение
+      if (user?.usdt_address && user.usdt_address !== usdtAddress.trim()) {
+        const response = await fetch('/api/usdt-change-request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            requested_address: usdtAddress.trim(),
+            reason: 'Изменение адреса кошелька'
+          })
+        })
+        
+        const data = await response.json()
+        
+        if (data.success) {
+          setSuccess('Запрос на изменение адреса отправлен менеджерам! Ожидайте одобрения.')
+        } else {
+          setError(data.error || 'Ошибка отправки запроса')
+        }
+        return
+      }
+      
+      // Если адрес не установлен, сохраняем напрямую
       const response = await fetch('/api/profile/update-usdt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ usdt_address: usdtAddress })
+        body: JSON.stringify({ usdt_address: usdtAddress.trim() })
       })
       
       const data = await response.json()

@@ -18,7 +18,8 @@ import {
   UserCheck,
   UserX,
   Trophy,
-  TrendingDown
+  TrendingDown,
+  Wallet
 } from 'lucide-react'
 
 interface Employee {
@@ -317,6 +318,14 @@ export default function DashboardPage() {
               >
                 <Activity className="w-4 h-4" />
                 Активность
+              </button>
+              
+              <button
+                onClick={() => window.location.href = '/usdt-requests'}
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg flex items-center gap-2 transition-colors"
+              >
+                <Wallet className="w-4 h-4" />
+                USDT Запросы
               </button>
             </div>
           </div>

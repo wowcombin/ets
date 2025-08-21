@@ -102,6 +102,22 @@ CREATE TABLE IF NOT EXISTS work_sessions (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
 );
 
+-- Создаем таблицу запросов на изменение USDT адреса
+CREATE TABLE IF NOT EXISTS usdt_change_requests (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    employee_id UUID REFERENCES employees(id) ON DELETE CASCADE,
+    current_address VARCHAR(255), -- текущий адрес
+    requested_address VARCHAR(255) NOT NULL, -- запрашиваемый адрес
+    requested_network VARCHAR(50) DEFAULT 'BEP20', -- сеть (BEP20, TRC20, ERC20)
+    reason TEXT, -- причина изменения
+    status VARCHAR(20) DEFAULT 'pending', -- pending, approved, rejected
+    approved_by UUID REFERENCES employees(id), -- кто одобрил
+    approved_at TIMESTAMP WITH TIME ZONE, -- когда одобрено
+    rejection_reason TEXT, -- причина отклонения
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
+);
+
 -- Создаем индексы для оптимизации
 CREATE INDEX idx_transactions_month ON transactions(month);
 CREATE INDEX idx_transactions_employee ON transactions(employee_id);
@@ -117,6 +133,9 @@ CREATE INDEX idx_work_sessions_month ON work_sessions(month);
 CREATE INDEX idx_work_sessions_casino ON work_sessions(casino_name);
 CREATE INDEX idx_work_sessions_deposit_time ON work_sessions(deposit_time);
 CREATE INDEX idx_work_sessions_completed ON work_sessions(is_completed);
+CREATE INDEX idx_usdt_requests_employee ON usdt_change_requests(employee_id);
+CREATE INDEX idx_usdt_requests_status ON usdt_change_requests(status);
+CREATE INDEX idx_usdt_requests_created ON usdt_change_requests(created_at);
 
 -- Вставляем начальные данные для сотрудников
 INSERT INTO employees (username, is_manager, manager_type, profit_percentage) VALUES
@@ -159,6 +178,7 @@ ALTER TABLE cards ENABLE ROW LEVEL SECURITY;
 ALTER TABLE salaries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE work_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE usdt_change_requests ENABLE ROW LEVEL SECURITY;
 
 -- Создаем политики для публичного доступа (временно, потом настроим авторизацию)
 CREATE POLICY "Enable read access for all users" ON employees
@@ -231,4 +251,17 @@ CREATE POLICY "Enable update for service role" ON work_sessions
     FOR UPDATE USING (auth.role() = 'service_role');
 
 CREATE POLICY "Enable delete for service role" ON work_sessions
+    FOR DELETE USING (auth.role() = 'service_role');
+
+-- Политики для usdt_change_requests
+CREATE POLICY "Enable read access for all users" ON usdt_change_requests
+    FOR SELECT USING (true);
+
+CREATE POLICY "Enable insert for service role" ON usdt_change_requests
+    FOR INSERT WITH CHECK (auth.role() = 'service_role');
+
+CREATE POLICY "Enable update for service role" ON usdt_change_requests
+    FOR UPDATE USING (auth.role() = 'service_role');
+
+CREATE POLICY "Enable delete for service role" ON usdt_change_requests
     FOR DELETE USING (auth.role() = 'service_role');
