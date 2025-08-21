@@ -15,7 +15,10 @@ const publicPaths = [
   '/api/debug-employee-data',
   '/api/last-sync-info',
   '/api/setup-sessions-table',
-  '/api/create-sessions-table'
+  '/api/create-sessions-table',
+  '/api/employee-data-public',
+  '/api/force-calculate-salaries',
+  '/api/force-sync'
 ]
 
 export function middleware(request: NextRequest) {

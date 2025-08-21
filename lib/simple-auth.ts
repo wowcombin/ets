@@ -22,15 +22,21 @@ export async function getSimpleUserFromSession(): Promise<SimpleUser | null> {
     const sessionToken = cookieStore.get('session')
     
     if (!sessionToken) {
+      console.log('No session token found in cookies')
       return null
     }
+    
+    console.log('Session token found:', sessionToken.value.substring(0, 20) + '...')
     
     // Парсим простой токен формата: employeeId_timestamp
     const [employeeId, timestamp] = sessionToken.value.split('_')
     
     if (!employeeId || !timestamp) {
+      console.log('Invalid token format:', { employeeId, timestamp })
       return null
     }
+    
+    console.log('Parsed token:', { employeeId, timestamp })
     
     // Проверяем что токен не старше 7 дней
     const tokenAge = Date.now() - parseInt(timestamp)

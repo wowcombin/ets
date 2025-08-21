@@ -130,7 +130,7 @@ export default function EmployeeDashboard() {
         }
       }
       
-      const response = await fetch('/api/employee-data-public', {
+      const response = await fetch('/api/employee-data', {
         cache: 'no-store',
         headers: {
           'Cache-Control': 'no-cache',
