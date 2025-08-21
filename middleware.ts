@@ -21,7 +21,9 @@ const publicPaths = [
   '/api/force-sync',
   '/api/usdt-change-request',
   '/api/create-usdt-table',
-  '/api/upgrade-transactions-table'
+  '/api/upgrade-transactions-table',
+  '/api/live-updates',
+  '/api/track-sheet-changes'
 ]
 
 export function middleware(request: NextRequest) {

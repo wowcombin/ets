@@ -147,12 +147,28 @@ export default function EmployeeDashboard() {
       })
       const result = await response.json()
       
+      // Получаем живые обновления отдельно
+      const liveResponse = await fetch('/api/live-updates', {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      })
+      const liveResult = await liveResponse.json()
+      
       if (result.success) {
-        setData(result.data)
+        // Объединяем основные данные с живыми обновлениями
+        const combinedData = {
+          ...result.data,
+          recentUpdates: liveResult.success ? liveResult.data.liveUpdates : result.data.recentUpdates || []
+        }
+        
+        setData(combinedData)
         setLastUpdated(new Date())
         console.log('Employee data updated:', new Date().toLocaleTimeString())
-        console.log('Recent transactions count:', result.data.recentTransactions?.length || 0)
-        console.log('Sample transaction:', result.data.recentTransactions?.[0])
+        console.log('Live updates count:', liveResult.success ? liveResult.data.liveUpdates?.length || 0 : 0)
+        console.log('Sample live update:', liveResult.success ? liveResult.data.liveUpdates?.[0] : null)
       } else {
         console.error('Employee data API error:', result)
         if (response.status === 401) {
