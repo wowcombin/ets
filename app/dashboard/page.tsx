@@ -52,9 +52,13 @@ interface Salary {
   leader_bonus: number
   total_salary: number
   is_paid: boolean
+  paid_at?: string
+  payment_hash?: string
+  payment_note?: string
   employee?: {
     username: string
     is_manager: boolean
+    usdt_address?: string
   }
 }
 
@@ -262,6 +266,22 @@ export default function DashboardPage() {
               >
                 <DollarSign className={`w-4 h-4 ${calculating ? 'animate-spin' : ''}`} />
                 Рассчитать зарплаты
+              </button>
+              
+              <button
+                onClick={() => window.location.href = '/payments'}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg flex items-center gap-2 transition-colors"
+              >
+                <DollarSign className="w-4 h-4" />
+                Выплаты
+              </button>
+              
+              <button
+                onClick={() => window.location.href = '/admin/users'}
+                className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg flex items-center gap-2 transition-colors"
+              >
+                <Users className="w-4 h-4" />
+                Пользователи
               </button>
               
               <button

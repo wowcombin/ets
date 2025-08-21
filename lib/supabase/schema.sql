@@ -4,8 +4,14 @@ CREATE TABLE IF NOT EXISTS employees (
     username VARCHAR(255) UNIQUE NOT NULL, -- @mr_e500, @sobroffice и т.д.
     folder_id VARCHAR(255), -- ID папки в Google Drive
     is_manager BOOLEAN DEFAULT FALSE,
+    is_active BOOLEAN DEFAULT TRUE, -- активен ли сотрудник
     manager_type VARCHAR(50), -- 'test_manager' или 'profit_manager'
     profit_percentage DECIMAL(5,2) DEFAULT 10.00, -- процент от прибыли
+    password_hash VARCHAR(255), -- хеш пароля для авторизации
+    usdt_address VARCHAR(255), -- USDT адрес для выплат (BEP20)
+    usdt_network VARCHAR(20) DEFAULT 'BEP20', -- сеть USDT
+    created_password_at TIMESTAMP WITH TIME ZONE, -- когда создан пароль
+    last_login TIMESTAMP WITH TIME ZONE, -- последний вход
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
 );
@@ -59,8 +65,23 @@ CREATE TABLE IF NOT EXISTS salaries (
     leader_bonus DECIMAL(10,2) DEFAULT 0,
     total_salary DECIMAL(10,2) DEFAULT 0,
     is_paid BOOLEAN DEFAULT FALSE,
+    paid_by UUID REFERENCES employees(id), -- кто отметил как оплаченное
+    paid_at TIMESTAMP WITH TIME ZONE, -- когда отмечено как оплаченное
+    payment_hash VARCHAR(255), -- хеш транзакции USDT
+    payment_note TEXT, -- заметка к платежу
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
+);
+
+-- Создаем таблицу сессий для авторизации
+CREATE TABLE IF NOT EXISTS sessions (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    employee_id UUID REFERENCES employees(id) ON DELETE CASCADE,
+    token VARCHAR(255) UNIQUE NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    user_agent TEXT, -- информация о браузере
+    ip_address INET, -- IP адрес пользователя
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
 );
 
 -- Создаем индексы для оптимизации
@@ -70,6 +91,9 @@ CREATE INDEX idx_expenses_month ON expenses(month);
 CREATE INDEX idx_cards_status ON cards(status);
 CREATE INDEX idx_salaries_month ON salaries(month);
 CREATE INDEX idx_salaries_employee ON salaries(employee_id);
+CREATE INDEX idx_sessions_token ON sessions(token);
+CREATE INDEX idx_sessions_employee ON sessions(employee_id);
+CREATE INDEX idx_sessions_expires ON sessions(expires_at);
 
 -- Вставляем начальные данные для сотрудников
 INSERT INTO employees (username, is_manager, manager_type, profit_percentage) VALUES
@@ -110,6 +134,7 @@ ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cards ENABLE ROW LEVEL SECURITY;
 ALTER TABLE salaries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
 
 -- Создаем политики для публичного доступа (временно, потом настроим авторизацию)
 CREATE POLICY "Enable read access for all users" ON employees
@@ -157,3 +182,16 @@ CREATE POLICY "Enable update for service role" ON cards
 
 CREATE POLICY "Enable update for service role" ON salaries
     FOR UPDATE USING (auth.role() = 'service_role');
+
+-- Политики для sessions
+CREATE POLICY "Enable read access for all users" ON sessions
+    FOR SELECT USING (true);
+
+CREATE POLICY "Enable insert for service role" ON sessions
+    FOR INSERT WITH CHECK (auth.role() = 'service_role');
+
+CREATE POLICY "Enable update for service role" ON sessions
+    FOR UPDATE USING (auth.role() = 'service_role');
+
+CREATE POLICY "Enable delete for service role" ON sessions
+    FOR DELETE USING (auth.role() = 'service_role');

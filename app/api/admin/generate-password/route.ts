@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase/client'
-import { hashPassword, generatePassword } from '@/lib/auth'
+import { requireManager, hashPassword, generatePassword } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
   try {
+    const manager = await requireManager()
+    
     const { username } = await request.json()
     
     if (!username) {
@@ -27,32 +29,16 @@ export async function POST(request: NextRequest) {
     
     if (error || !employee) {
       return NextResponse.json(
-        { success: false, error: 'Пользователь не найден в системе. Обратитесь к администратору.' },
+        { success: false, error: 'Пользователь не найден в системе.' },
         { status: 404 }
       )
     }
     
-    // Проверяем что у пользователя еще нет пароля
-    if (employee.password_hash) {
-      return NextResponse.json(
-        { success: false, error: 'У вас уже есть пароль. Используйте страницу входа.' },
-        { status: 400 }
-      )
-    }
-    
-    // Проверяем что пользователь активен
-    if (!employee.is_active || employee.username.includes('УВОЛЕН')) {
-      return NextResponse.json(
-        { success: false, error: 'Аккаунт деактивирован. Обратитесь к администратору.' },
-        { status: 403 }
-      )
-    }
-    
-    // Генерируем случайный пароль
+    // Генерируем новый пароль
     const password = generatePassword()
     const passwordHash = await hashPassword(password)
     
-    // Сохраняем пароль в базе
+    // Сохраняем пароль в базе (перезаписываем старый)
     const { error: updateError } = await supabase
       .from('employees')
       .update({
@@ -69,14 +55,31 @@ export async function POST(request: NextRequest) {
       )
     }
     
+    // Удаляем все активные сессии пользователя
+    await supabase
+      .from('sessions')
+      .delete()
+      .eq('employee_id', employee.id)
+    
     return NextResponse.json({
       success: true,
       password: password,
-      message: 'Пароль успешно создан'
+      message: `Новый пароль создан для ${normalizedUsername}`,
+      employee: {
+        username: employee.username,
+        is_active: employee.is_active
+      }
     })
     
-  } catch (error) {
-    console.error('Register error:', error)
+  } catch (error: any) {
+    if (error.message === 'Не авторизован' || error.message === 'Доступ только для менеджеров') {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.message === 'Не авторизован' ? 401 : 403 }
+      )
+    }
+    
+    console.error('Generate password error:', error)
     return NextResponse.json(
       { success: false, error: 'Внутренняя ошибка сервера' },
       { status: 500 }

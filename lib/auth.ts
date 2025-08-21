@@ -61,6 +61,11 @@ export async function getUserFromSession(): Promise<User | null> {
     
     // Проверяем что сотрудник активен
     if (!session.employee.is_active || session.employee.username.includes('УВОЛЕН')) {
+      // Удаляем сессию неактивного пользователя
+      await supabase
+        .from('sessions')
+        .delete()
+        .eq('token', sessionToken.value)
       return null
     }
     
