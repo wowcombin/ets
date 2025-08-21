@@ -78,7 +78,8 @@ export async function GET() {
     errors: [] as string[],
     employeesList: [] as any[],
     transactionsByEmployee: {} as Record<string, number>,
-    cardThemes: {} as Record<string, string[]>
+    cardThemes: {} as Record<string, string[]>,
+    workSessionsAnalyzed: 0
   }
 
   try {
