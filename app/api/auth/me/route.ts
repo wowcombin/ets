@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getUserFromSession } from '@/lib/auth'
+import { getSimpleUserFromSession } from '@/lib/simple-auth'
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await getUserFromSession()
+    const user = await getSimpleUserFromSession()
     
     if (!user) {
       return NextResponse.json(
