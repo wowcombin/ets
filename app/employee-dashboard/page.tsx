@@ -214,6 +214,83 @@ export default function EmployeeDashboard() {
       </header>
 
       <div className="container mx-auto px-6 py-8">
+        {/* Personal Earnings Card */}
+        {myStats && (
+          <Card className="bg-gradient-to-r from-green-900/30 to-emerald-900/30 border-green-500/50 mb-8 shadow-xl">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <Wallet className="w-6 h-6 text-green-400" />
+                💰 Ваш заработок
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center">
+                <div className="text-5xl font-bold text-green-400 mb-4">
+                  ${myStats.salary?.total_salary?.toFixed(2) || '0.00'}
+                </div>
+                <p className="text-xl text-gray-300 mb-6">
+                  {myStats.salary ? `Итоговая зарплата за ${data?.month}` : 'Зарплата еще не рассчитана'}
+                </p>
+                
+                {myStats.salary ? (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto">
+                    <div className="bg-gray-800/50 rounded-lg p-4">
+                      <div className="text-2xl font-bold text-blue-400">
+                        ${myStats.salary.base_salary?.toFixed(2) || '0.00'}
+                      </div>
+                      <p className="text-sm text-gray-400">Базовая зарплата (10%)</p>
+                    </div>
+                    
+                    {(myStats.salary.bonus || 0) > 0 && (
+                      <div className="bg-gray-800/50 rounded-lg p-4">
+                        <div className="text-2xl font-bold text-green-400">
+                          +${myStats.salary.bonus?.toFixed(2) || '0.00'}
+                        </div>
+                        <p className="text-sm text-gray-400">Бонус за результат</p>
+                      </div>
+                    )}
+                    
+                    {(myStats.salary.leader_bonus || 0) > 0 && (
+                      <div className="bg-gray-800/50 rounded-lg p-4">
+                        <div className="text-2xl font-bold text-yellow-400 flex items-center justify-center gap-2">
+                          <Trophy className="w-5 h-5" />
+                          +${myStats.salary.leader_bonus?.toFixed(2) || '0.00'}
+                        </div>
+                        <p className="text-sm text-gray-400">Лидер месяца</p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="bg-gray-800/50 rounded-lg p-6 max-w-md mx-auto">
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-blue-400 mb-2">
+                        ${myStats.totalGross?.toFixed(2) || '0.00'}
+                      </div>
+                      <p className="text-sm text-gray-400">Ваш профит за месяц</p>
+                      <p className="text-xs text-gray-500 mt-2">
+                        Зарплата будет рассчитана в конце месяца
+                      </p>
+                    </div>
+                  </div>
+                )}
+                
+                {myStats.salary && (
+                  <div className="mt-6 p-4 bg-gray-800/30 rounded-lg">
+                    <div className={`text-lg font-bold ${myStats.salary.is_paid ? 'text-green-400' : 'text-yellow-400'}`}>
+                      {myStats.salary.is_paid ? '✅ Выплачено' : '⏳ Ожидает выплаты'}
+                    </div>
+                    {myStats.salary.is_paid && (
+                      <p className="text-sm text-gray-400 mt-1">
+                        Поздравляем! Ваша зарплата была выплачена
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* My Performance Card */}
         {myStats && (
           <Card className="bg-gradient-to-r from-blue-900/30 to-purple-900/30 border-blue-500/50 mb-8 shadow-xl">
