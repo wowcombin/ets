@@ -33,7 +33,7 @@ export default function LoginPage() {
         if (data.user.is_manager) {
           router.push('/dashboard')
         } else {
-          router.push('/employee-dashboard')
+          router.push('/employee-dashboard-new')
         }
       } else {
         setError(data.error || 'Ошибка входа')

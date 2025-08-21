@@ -19,7 +19,7 @@ export default function Home() {
           if (data.user.is_manager) {
             router.push('/dashboard')
           } else {
-            router.push('/employee-dashboard')
+            router.push('/employee-dashboard-new')
           }
         } else {
           // Не авторизован, остаемся на главной

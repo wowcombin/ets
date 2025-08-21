@@ -20,32 +20,64 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useRouter } from 'next/navigation'
 
-interface LeaderboardData {
+interface EmployeeData {
   month: string
-  totalGross: number
-  leaderboard: Array<{
-    rank: number
+  user: {
+    id: string
     username: string
-    total_salary: number
-    base_salary: number
-    bonus: number
-    leader_bonus: number
-    is_paid: boolean
-    paid_at?: string
-    is_active: boolean
+    is_manager: boolean
+    stats: {
+      id: string
+      username: string
+      totalGross: number
+      transactionCount: number
+      casinoCount: number
+      rank: number
+      salary: {
+        base_salary: number
+        bonus: number
+        leader_bonus: number
+        total_salary: number
+        is_paid: boolean
+      } | null
+    }
+  }
+  stats: {
+    totalGross: number
+    employeeCount: number
+    transactionCount: number
+    casinoCount: number
+  }
+  leaderboard: Array<{
+    id: string
+    username: string
+    totalGross: number
+    transactionCount: number
+    casinoCount: number
+    rank: number
+    salary: any
   }>
   casinoStats: Array<{
     name: string
-    profit: number
+    totalGross: number
+    transactionCount: number
+    employeeCount: number
+    avgProfit: number
   }>
-  user: {
-    username: string
-    is_manager: boolean
-  }
+  recentTransactions: Array<{
+    id: string
+    employee: string
+    casino_name: string
+    gross_profit_usd: number
+    deposit_usd: number
+    withdrawal_usd: number
+    card_number: string
+    created_at: string
+  }>
 }
 
 export default function EmployeeDashboard() {
-  const [data, setData] = useState<LeaderboardData | null>(null)
+  const [data, setData] = useState<EmployeeData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
@@ -59,7 +91,7 @@ export default function EmployeeDashboard() {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch('/api/leaderboard')
+      const response = await fetch('/api/employee-data')
       const result = await response.json()
       
       if (result.success) {
@@ -113,7 +145,7 @@ export default function EmployeeDashboard() {
     )
   }
 
-  const myStats = data?.leaderboard.find(item => item.username === data.user.username)
+  const myStats = data?.user.stats
   const topThree = data?.leaderboard.slice(0, 3) || []
 
   return (
@@ -246,45 +278,46 @@ export default function EmployeeDashboard() {
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-green-400">
-                    ${myStats.total_salary.toFixed(2)}
+                    ${myStats.salary?.total_salary.toFixed(2) || '0.00'}
                   </div>
                   <p className="text-sm text-gray-400">Общая зарплата</p>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-blue-400">
-                    ${myStats.base_salary.toFixed(2)}
+                    ${myStats.totalGross.toFixed(2)}
                   </div>
-                  <p className="text-sm text-gray-400">Базовая (10%)</p>
+                  <p className="text-sm text-gray-400">Мой профит</p>
                 </div>
                 <div className="text-center">
-                  <div className={`text-2xl font-bold ${myStats.is_paid ? 'text-green-400' : 'text-yellow-400'}`}>
-                    {myStats.is_paid ? 'Оплачено' : 'Ожидает'}
+                  <div className="text-2xl font-bold text-purple-400">
+                    {myStats.transactionCount}
                   </div>
-                  <p className="text-sm text-gray-400">Статус</p>
-                  {myStats.paid_at && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      {new Date(myStats.paid_at).toLocaleDateString('ru-RU')}
-                    </p>
-                  )}
+                  <p className="text-sm text-gray-400">Транзакций</p>
+                </div>
+                <div className="text-center">
+                  <div className={`text-2xl font-bold ${myStats.salary?.is_paid ? 'text-green-400' : 'text-yellow-400'}`}>
+                    {myStats.salary?.is_paid ? 'Оплачено' : 'Ожидает'}
+                  </div>
+                  <p className="text-sm text-gray-400">Статус выплаты</p>
                 </div>
               </div>
               
-              {(myStats.bonus > 0 || myStats.leader_bonus > 0) && (
+              {(myStats.salary?.bonus > 0 || myStats.salary?.leader_bonus > 0) && (
                 <div className="mt-4 pt-4 border-t border-gray-700">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {myStats.bonus > 0 && (
+                    {myStats.salary?.bonus > 0 && (
                       <div className="text-center">
                         <div className="text-xl font-bold text-green-400">
-                          +${myStats.bonus.toFixed(2)}
+                          +${myStats.salary.bonus.toFixed(2)}
                         </div>
                         <p className="text-sm text-gray-400">Бонус за результат</p>
                       </div>
                     )}
-                    {myStats.leader_bonus > 0 && (
+                    {myStats.salary?.leader_bonus > 0 && (
                       <div className="text-center">
                         <div className="text-xl font-bold text-yellow-400 flex items-center justify-center gap-2">
                           <Trophy className="w-4 h-4" />
-                          +${myStats.leader_bonus.toFixed(2)}
+                          +${myStats.salary.leader_bonus.toFixed(2)}
                         </div>
                         <p className="text-sm text-gray-400">Лидер месяца</p>
                       </div>

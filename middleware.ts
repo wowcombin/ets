@@ -34,9 +34,9 @@ export function middleware(request: NextRequest) {
   
   // Если страница публичная - пропускаем
   if (isPublicPath) {
-    // Если пользователь залогинен и пытается зайти на login/register - редирект на dashboard
+    // Если пользователь залогинен и пытается зайти на login/register - редирект на главную
     if (sessionToken && (pathname === '/login' || pathname === '/register')) {
-      return NextResponse.redirect(new URL('/dashboard', request.url))
+      return NextResponse.redirect(new URL('/', request.url))
     }
     return NextResponse.next()
   }

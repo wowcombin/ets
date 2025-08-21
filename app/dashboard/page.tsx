@@ -260,15 +260,6 @@ export default function DashboardPage() {
               </button>
               
               <button
-                onClick={calculateSalaries}
-                disabled={calculating}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center gap-2 transition-colors"
-              >
-                <DollarSign className={`w-4 h-4 ${calculating ? 'animate-spin' : ''}`} />
-                Рассчитать зарплаты
-              </button>
-              
-              <button
                 onClick={() => window.location.href = '/payments'}
                 className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg flex items-center gap-2 transition-colors"
               >
@@ -290,15 +281,6 @@ export default function DashboardPage() {
               >
                 <CreditCard className="w-4 h-4" />
                 Анализ карт
-              </button>
-              
-              <button
-                onClick={syncData}
-                disabled={syncing}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2 transition-colors"
-              >
-                <Download className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-                {syncing ? 'Синхронизация...' : 'Синхронизация'}
               </button>
             </div>
           </div>
