@@ -45,7 +45,8 @@ const publicPaths = [
   '/api/clean-empty-transactions',
   '/api/clear-and-resync',
   '/api/remove-duplicates',
-  '/api/clean-deleted-transactions'
+  '/api/clean-deleted-transactions',
+  '/api/verify-totals'
 ]
 
 export function middleware(request: NextRequest) {
