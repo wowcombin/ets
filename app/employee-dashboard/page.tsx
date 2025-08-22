@@ -208,13 +208,25 @@ export default function EmployeeDashboard() {
                 'Content-Type': 'application/json'
               }
             })
+            
+            if (!res.ok) {
+              console.error('❌ Force-sync failed:', res.status, res.statusText)
+              return
+            }
+            
             const data = await res.json()
             console.log('✅ Auto-sync completed:', data)
-            // Обновляем данные после синхронизации
-            setTimeout(() => {
-              console.log('🔄 Loading data after sync...')
-              loadData(false)
-            }, 5000) // Даем время на обработку
+            
+            // Если были созданы новые транзакции, обновляем данные
+            if (data.syncResult?.transactionsCreated > 0) {
+              console.log(`📊 ${data.syncResult.transactionsCreated} новых транзакций добавлено!`)
+              setTimeout(() => {
+                console.log('🔄 Loading data after sync...')
+                loadData(false)
+              }, 5000) // Даем время на обработку
+            } else {
+              console.log('ℹ️ Нет новых транзакций')
+            }
           } catch (err) {
             console.error('❌ Auto-sync error:', err)
           }
@@ -319,6 +331,32 @@ export default function EmployeeDashboard() {
                 className="text-yellow-400 border-yellow-400 hover:bg-yellow-900/20"
               >
                 📊 История
+              </Button>
+              <Button
+                onClick={async () => {
+                  console.log('🔄 Manual sync triggered...')
+                  try {
+                    const res = await fetch('/api/force-sync', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' }
+                    })
+                    const data = await res.json()
+                    console.log('✅ Manual sync result:', data)
+                    if (data.syncResult?.transactionsCreated > 0) {
+                      alert(`Синхронизация завершена! Добавлено ${data.syncResult.transactionsCreated} новых транзакций.`)
+                      setTimeout(() => loadData(true), 2000)
+                    } else {
+                      alert('Нет новых транзакций для синхронизации.')
+                    }
+                  } catch (err) {
+                    console.error('❌ Manual sync error:', err)
+                    alert('Ошибка синхронизации!')
+                  }
+                }}
+                variant="outline"
+                className="text-purple-400 border-purple-400 hover:bg-purple-900/20"
+              >
+                🔄 Синхр.
               </Button>
               
               <Button
