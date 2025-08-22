@@ -38,7 +38,8 @@ const publicPaths = [
   '/api/clean-deleted-transactions',
   '/api/verify-totals',
   '/api/setup-transaction-history',
-  '/api/suspicious-changes'
+  '/api/suspicious-changes',
+  '/api/setup-stats-function'
 ]
 
 export function middleware(request: NextRequest) {

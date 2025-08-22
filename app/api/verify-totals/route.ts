@@ -15,11 +15,12 @@ export async function GET() {
     
     console.log(`Verifying totals for month: ${monthCode}`)
     
-    // Получаем все транзакции текущего месяца
-    const { data: transactions, error } = await supabase
+    // Получаем все транзакции текущего месяца БЕЗ ОГРАНИЧЕНИЙ
+    const { data: transactions, error, count } = await supabase
       .from('transactions')
-      .select('*')
+      .select('*', { count: 'exact' })
       .eq('month', monthCode)
+      .range(0, 10000) // Явно указываем большой лимит
     
     if (error) {
       throw error
@@ -105,11 +106,15 @@ export async function GET() {
     // Сортируем по профиту
     employeeResults.sort((a, b) => b.calculatedProfit - a.calculatedProfit)
     
+    console.log(`Total transactions found: ${transactions.length} (DB count: ${count})`)
+    console.log(`Total gross profit: $${Math.round(totalGrossProfit * 100) / 100}`)
+    
     return NextResponse.json({
       success: true,
       data: {
         monthCode,
         transactionCount: transactions.length,
+        dbCount: count || 0,
         totalGrossProfit: Math.round(totalGrossProfit * 100) / 100,
         calculatedGrossProfit: Math.round(calculatedGrossProfit * 100) / 100,
         difference: Math.round((totalGrossProfit - calculatedGrossProfit) * 100) / 100,

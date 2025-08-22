@@ -63,6 +63,7 @@ export async function GET() {
       .select('employee_id, gross_profit_usd, deposit_usd, withdrawal_usd, casino_name, card_number, created_at, sync_timestamp')
       .eq('month', currentMonth)
       .in('employee_id', employeeIds)
+      .range(0, 10000) // Получаем ВСЕ транзакции, не только первые 1000
     
     if (allError) {
       console.error('Error fetching all transactions:', allError)
@@ -100,8 +101,11 @@ export async function GET() {
     
     // Добавляем исключение только если есть ID для исключения
     if (excludeIds.length > 0) {
-      statsQuery = statsQuery.not('employee_id', 'in', `(${excludeIds.join(',')})`)
+      statsQuery = statsQuery.not('employee_id', 'in', excludeIds)
     }
+    
+    // ВАЖНО: Указываем большой лимит, чтобы получить ВСЕ транзакции
+    statsQuery = statsQuery.range(0, 10000)
     
     const { data: statsData, error: statsError } = await statsQuery
     
@@ -113,6 +117,7 @@ export async function GET() {
     const totalTransactionCount = statsData?.length || 0
     
     console.log(`Total gross from EMPLOYEES only: $${totalGross.toFixed(2)} (${totalTransactionCount} transactions)`)
+    console.log('Stats data sample:', statsData?.slice(0, 5))
     
     // Статистика по сотрудникам с расчетом заработка на лету
     const employeeStats = employees?.map(emp => {
