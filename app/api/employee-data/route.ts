@@ -71,6 +71,8 @@ export async function GET() {
     
     const transactions = allEmployeeTransactions || []
     console.log(`Total employee transactions fetched: ${transactions.length}`)
+    console.log('Sample transactions:', transactions.slice(0, 3))
+    console.log('Employee IDs used for filtering:', employeeIds)
     
     // Получаем зарплаты только сотрудников
     const { data: salaries, error: salError } = await supabase
@@ -88,10 +90,12 @@ export async function GET() {
     // Получаем список менеджеров и тестовых аккаунтов для исключения
     const { data: managersAndTest } = await supabase
       .from('employees')
-      .select('id')
+      .select('id, username, is_manager')
       .or('is_manager.eq.true,username.eq.@sobroffice')
     
+    console.log('Managers and test accounts:', managersAndTest)
     const excludeIds = managersAndTest?.map(e => e.id) || []
+    console.log('Excluding IDs from stats:', excludeIds)
     
     // Считаем общий профит напрямую через агрегацию в базе
     let statsQuery = supabase
@@ -118,6 +122,12 @@ export async function GET() {
     
     console.log(`Total gross from EMPLOYEES only: $${totalGross.toFixed(2)} (${totalTransactionCount} transactions)`)
     console.log('Stats data sample:', statsData?.slice(0, 5))
+    console.log('Stats query result:', { 
+      dataLength: statsData?.length || 0,
+      excludeIds: excludeIds,
+      currentMonth,
+      firstFewRecords: statsData?.slice(0, 3)
+    })
     
     // Статистика по сотрудникам с расчетом заработка на лету
     const employeeStats = employees?.map(emp => {
