@@ -164,11 +164,11 @@ export async function GET() {
       }
     }) || []
     
-    // Сортируем по итоговой зарплате (total_salary), а не по профиту
+    // Сортируем по профиту (gross_profit) для правильного отображения лидеров
     employeeStats.sort((a, b) => {
-      const salaryA = a.salary?.total_salary || 0
-      const salaryB = b.salary?.total_salary || 0
-      return salaryB - salaryA
+      const profitA = a.total_gross || 0
+      const profitB = b.total_gross || 0
+      return profitB - profitA
     })
     
     // Определяем лидера месяца (один сотрудник с самой большой транзакцией)
