@@ -103,8 +103,42 @@ export async function GET() {
     const sheets = google.sheets({ version: 'v4', auth })
     const supabase = getServiceSupabase()
     
-    // НЕ УДАЛЯЕМ ДАННЫЕ! Только добавляем новые
-    console.log(`Syncing data for ${monthCode} (preserving existing data)...`)
+    // НОВАЯ ЛОГИКА: Получаем существующие транзакции для дедупликации
+    console.log(`Syncing data for ${monthCode} with deduplication...`)
+    
+    // Получаем все существующие транзакции для текущего месяца
+    const existingTransactions = new Set<string>()
+    let from = 0
+    const limit = 1000
+    let hasMore = true
+    
+    console.log('Loading existing transactions for deduplication...')
+    while (hasMore) {
+      const { data: batch, error } = await supabase
+        .from('transactions')
+        .select('employee_id, month, casino_name, deposit_usd, withdrawal_usd, card_number')
+        .eq('month', monthCode)
+        .range(from, from + limit - 1)
+      
+      if (error) {
+        console.error('Error loading existing transactions:', error)
+        break
+      }
+      
+      if (batch && batch.length > 0) {
+        batch.forEach(t => {
+          // Создаем уникальный ключ для каждой транзакции
+          const key = `${t.employee_id}_${t.month}_${t.casino_name}_${t.deposit_usd}_${t.withdrawal_usd}_${t.card_number}`
+          existingTransactions.add(key)
+        })
+        from += limit
+        hasMore = batch.length === limit
+      } else {
+        hasMore = false
+      }
+    }
+    
+    console.log(`Loaded ${existingTransactions.size} existing transactions for deduplication`)
     
     // Очищаем только расходы и зарплаты для пересчета
     await supabase.from('expenses').delete().eq('month', monthCode)
@@ -304,18 +338,29 @@ export async function GET() {
                 
                 console.log(`Processing: ${cleanUsername} - ${String(row[0]).trim()} - Deposit: ${depositUsd}, Withdrawal: ${withdrawalUsd}, Profit: ${grossProfit}`)
                 
-                allTransactions.push({
-                  employee_id: employeeId,
-                  month: monthCode,
-                  casino_name: String(row[0]).trim(),
-                  deposit_gbp: depositGbp,
-                  withdrawal_gbp: withdrawalGbp,
-                  deposit_usd: depositUsd,
-                  withdrawal_usd: withdrawalUsd,
-                  card_number: cardNumber,
-                  gross_profit_usd: grossProfit,
-                  net_profit_usd: grossProfit
-                })
+                // Создаем уникальный ключ для проверки дубликата
+                const transactionKey = `${employeeId}_${monthCode}_${String(row[0]).trim()}_${depositUsd}_${withdrawalUsd}_${cardNumber}`
+                
+                // Добавляем только если это не дубликат
+                if (!existingTransactions.has(transactionKey)) {
+                  allTransactions.push({
+                    employee_id: employeeId,
+                    month: monthCode,
+                    casino_name: String(row[0]).trim(),
+                    deposit_gbp: depositGbp,
+                    withdrawal_gbp: withdrawalGbp,
+                    deposit_usd: depositUsd,
+                    withdrawal_usd: withdrawalUsd,
+                    card_number: cardNumber,
+                    gross_profit_usd: grossProfit,
+                    net_profit_usd: grossProfit
+                  })
+                  
+                  // Добавляем в Set чтобы не добавить дубликат в этой же сессии
+                  existingTransactions.add(transactionKey)
+                } else {
+                  console.log(`Skipping duplicate: ${cleanUsername} - ${String(row[0]).trim()}`)
+                }
                 
                 employeeGross += grossProfit
                 calculatedTotalGross += grossProfit
@@ -366,18 +411,29 @@ export async function GET() {
             const withdrawalUsd = Math.round(withdrawalGbp * GBP_TO_USD_RATE * 100) / 100
             const grossProfit = withdrawalUsd - depositUsd
             
-            allTransactions.push({
-              employee_id: sobrofficeId,
-              month: monthCode,
-              casino_name: String(row[0]).trim(),
-              deposit_gbp: depositGbp,
-              withdrawal_gbp: withdrawalGbp,
-              deposit_usd: depositUsd,
-              withdrawal_usd: withdrawalUsd,
-              card_number: cardNumber,
-              gross_profit_usd: grossProfit,
-              net_profit_usd: grossProfit
-            })
+            // Создаем уникальный ключ для проверки дубликата
+            const transactionKey = `${sobrofficeId}_${monthCode}_${String(row[0]).trim()}_${depositUsd}_${withdrawalUsd}_${cardNumber}`
+            
+            // Добавляем только если это не дубликат
+            if (!existingTransactions.has(transactionKey)) {
+              allTransactions.push({
+                employee_id: sobrofficeId,
+                month: monthCode,
+                casino_name: String(row[0]).trim(),
+                deposit_gbp: depositGbp,
+                withdrawal_gbp: withdrawalGbp,
+                deposit_usd: depositUsd,
+                withdrawal_usd: withdrawalUsd,
+                card_number: cardNumber,
+                gross_profit_usd: grossProfit,
+                net_profit_usd: grossProfit
+              })
+              
+              // Добавляем в Set чтобы не добавить дубликат в этой же сессии
+              existingTransactions.add(transactionKey)
+            } else {
+              console.log(`Skipping duplicate test transaction: ${String(row[0]).trim()}`)
+            }
             
             testGross += grossProfit
             calculatedTotalGross += grossProfit
@@ -463,43 +519,37 @@ export async function GET() {
     console.log(`Total gross calculated: $${calculatedTotalGross.toFixed(2)}`)
     console.log(`Employees with transactions: ${processedEmployees}`)
     
-    // Вставляем транзакции (игнорируем дубликаты)
+    // Вставляем только новые транзакции (уже отфильтрованные от дубликатов)
     if (allTransactions.length > 0) {
       const batchSize = 500
       let insertedCount = 0
       
-      console.log(`Attempting to insert ${allTransactions.length} transactions...`)
+      console.log(`Inserting ${allTransactions.length} NEW transactions (duplicates already filtered)...`)
       
       for (let i = 0; i < allTransactions.length; i += batchSize) {
         const batch = allTransactions.slice(i, i + batchSize)
         
-        try {
-          const { error, data } = await supabase
-            .from('transactions')
-            .insert(batch)
-            .select()
-          
-          if (error) {
-            // Игнорируем ошибки дубликатов
-            if (error.code === '23505' || error.message.includes('duplicate')) {
-              console.log(`Batch ${i}: Skipped duplicates`)
-            } else {
-              console.error(`Batch insert error:`, error)
-              results.errors.push(`Batch error: ${error.message}`)
-            }
-          } else {
-            insertedCount += data?.length || 0
-            console.log(`Batch ${i}: Inserted ${data?.length} transactions`)
-          }
-        } catch (err: any) {
-          console.log(`Batch ${i}: Error ignored (likely duplicates)`)
+        const { error, data } = await supabase
+          .from('transactions')
+          .insert(batch)
+          .select()
+        
+        if (error) {
+          console.error(`Batch insert error:`, error)
+          results.errors.push(`Batch error: ${error.message}`)
+        } else {
+          insertedCount += data?.length || 0
+          console.log(`Batch ${i}: Inserted ${data?.length} transactions`)
         }
         
         await delay(100)
       }
       
-      console.log(`Total transactions processed: ${insertedCount}`)
+      console.log(`Total NEW transactions inserted: ${insertedCount}`)
       results.stats.transactionsCreated = insertedCount
+    } else {
+      console.log('No new transactions to insert (all were duplicates)')
+      results.stats.transactionsCreated = 0
     }
     
     // Читаем расходы
