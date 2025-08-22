@@ -177,9 +177,24 @@ export default function EmployeeDashboard() {
         // Если авторизован, загружаем данные
         loadData(true)
         
-        // Автообновление каждые 2 минуты
-        interval = setInterval(() => {
+        // Автообновление каждые 2 минуты + синхронизация каждые 10 минут
+        interval = setInterval(async () => {
           console.log('Auto-refreshing data...', new Date().toLocaleTimeString())
+          
+          // Каждые 10 минут запускаем синхронизацию
+          const now = Date.now()
+          const lastSync = parseInt(localStorage.getItem('lastSyncTime') || '0')
+          if (now - lastSync > 600000) { // 10 минут
+            console.log('Running force sync...')
+            try {
+              await fetch('/api/force-sync', { method: 'POST' })
+              localStorage.setItem('lastSyncTime', now.toString())
+              console.log('Force sync completed')
+            } catch (e) {
+              console.error('Force sync failed:', e)
+            }
+          }
+          
           loadData(false) // false = не показывать лоадер
         }, 120000) // 120000 мс = 2 минуты
         
