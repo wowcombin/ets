@@ -4,9 +4,9 @@ import { requireSimpleAuth } from '@/lib/simple-auth'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    const user = await requireSimpleAuth(request)
+    const user = await requireSimpleAuth()
     if (!user) {
       return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
     }

@@ -65,7 +65,7 @@ export default function EarningsHistoryPage() {
 
   useEffect(() => {
     loadHistory()
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadHistory = async () => {
     try {
