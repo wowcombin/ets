@@ -181,19 +181,8 @@ export default function EmployeeDashboard() {
         interval = setInterval(async () => {
           console.log('Auto-refreshing data...', new Date().toLocaleTimeString())
           
-          // Каждые 5 минут запускаем принудительную синхронизацию
-          const now = Date.now()
-          const lastSync = parseInt(localStorage.getItem('lastSyncTime') || '0')
-          if (now - lastSync > 300000) { // 5 минут
-            console.log('Running force sync to get fresh data from Google Sheets...')
-            try {
-              await fetch('/api/force-sync', { method: 'POST' })
-              localStorage.setItem('lastSyncTime', now.toString())
-              console.log('Force sync completed - fresh data imported')
-            } catch (e) {
-              console.error('Force sync failed:', e)
-            }
-          }
+          // ВРЕМЕННО ОТКЛЮЧЕНА автосинхронизация для предотвращения дубликатов
+          console.log('Auto-sync temporarily disabled to prevent duplicates')
           
           loadData(false) // false = не показывать лоадер
         }, 120000) // 120000 мс = 2 минуты
