@@ -295,7 +295,7 @@ export async function GET() {
             let employeeTransactionCount = 0
             
             for (const row of rows) {
-              if (row[0]) {
+              if (row[0] && String(row[0]).trim()) {
                 const depositGbp = parseNumberValue(row[1])
                 const withdrawalGbp = parseNumberValue(row[2])
                 const cardNumber = extractCardNumber(row[3])
@@ -303,6 +303,8 @@ export async function GET() {
                 const depositUsd = Math.round(depositGbp * GBP_TO_USD_RATE * 100) / 100
                 const withdrawalUsd = Math.round(withdrawalGbp * GBP_TO_USD_RATE * 100) / 100
                 const grossProfit = withdrawalUsd - depositUsd
+                
+                console.log(`Processing: ${cleanUsername} - ${String(row[0]).trim()} - Deposit: ${depositUsd}, Withdrawal: ${withdrawalUsd}, Profit: ${grossProfit}`)
                 
                 allTransactions.push({
                   employee_id: employeeId,
@@ -359,7 +361,7 @@ export async function GET() {
         let testTransactionCount = 0
         
         for (const row of rows) {
-          if (row[0]) {
+          if (row[0] && String(row[0]).trim()) {
             const depositGbp = parseNumberValue(row[1])
             const withdrawalGbp = parseNumberValue(row[2])
             const cardNumber = extractCardNumber(row[3])
