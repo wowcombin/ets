@@ -183,7 +183,6 @@ export async function GET() {
         const deposit = t.deposit_usd || 0
         const withdrawal = t.withdrawal_usd || 0
         const profit = withdrawal - deposit
-        const adjustedProfit = profit * 1.3
         
         return {
           id: t.id,
@@ -192,7 +191,7 @@ export async function GET() {
           deposit_usd: t.deposit_usd,
           withdrawal_usd: t.withdrawal_usd,
           raw_profit: profit,
-          calculated_profit: adjustedProfit,
+          calculated_profit: profit,
           has_deposit: deposit > 0,
           has_withdrawal: withdrawal > 0,
           card_number: t.card_number,

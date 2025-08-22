@@ -245,15 +245,14 @@ export async function GET() {
       })
       .slice(0, 20)
       .map(t => {
-        // Рассчитываем по формуле (вывод - депозит) * 1.3
+        // Профит уже рассчитан в USD при синхронизации
         const deposit = t.deposit_usd || 0
         const withdrawal = t.withdrawal_usd || 0
         const profit = withdrawal - deposit
-        const adjustedProfit = profit * 1.3
         
         return {
           ...t,
-          calculated_profit: adjustedProfit,
+          calculated_profit: profit,
           has_deposit: deposit > 0,
           has_withdrawal: withdrawal > 0,
           raw_profit: profit,
