@@ -41,37 +41,34 @@ export async function GET() {
     
     // ВАЖНО: Получаем транзакции ТОЛЬКО сотрудников для лидерборда
     const employeeIds = employees?.map(e => e.id) || []
-    console.log('Fetching employee transactions with pagination...')
-    let employeeTransactions: any[] = []
-    let from = 0
-    const limit = 1000
-    let hasMore = true
     
-    while (hasMore) {
-      const { data: batch, error: batchError } = await supabase
-        .from('transactions')
-        .select('*, employee:employees(username, is_manager)')
-        .eq('month', currentMonth)
-        .in('employee_id', employeeIds)
-        .range(from, from + limit - 1)
-        .order('created_at', { ascending: false })
-      
-      if (batchError) {
-        console.error(`Error fetching employee batch from ${from}:`, batchError)
-        break
-      }
-      
-      if (batch && batch.length > 0) {
-        employeeTransactions = [...employeeTransactions, ...batch]
-        console.log(`Employee batch: ${from} to ${from + batch.length - 1}, total so far: ${employeeTransactions.length}`)
-        from += limit
-        hasMore = batch.length === limit
-      } else {
-        hasMore = false
-      }
+    // Для скорости загружаем только последние транзакции для отображения
+    console.log('Fetching recent transactions for display...')
+    const { data: recentTransactionsData, error: recentError } = await supabase
+      .from('transactions')
+      .select('*, employee:employees(username, is_manager)')
+      .eq('month', currentMonth)
+      .in('employee_id', employeeIds)
+      .order('sync_timestamp', { ascending: false, nullsFirst: false })
+      .limit(200)
+    
+    if (recentError) {
+      console.error('Error fetching recent transactions:', recentError)
     }
     
-    const transactions = employeeTransactions
+    // Для полной статистики получаем все транзакции без JOIN
+    console.log('Fetching all employee transactions for statistics...')
+    const { data: allEmployeeTransactions, error: allError } = await supabase
+      .from('transactions')
+      .select('employee_id, gross_profit_usd, deposit_usd, withdrawal_usd, casino_name, card_number')
+      .eq('month', currentMonth)
+      .in('employee_id', employeeIds)
+    
+    if (allError) {
+      console.error('Error fetching all transactions:', allError)
+    }
+    
+    const transactions = allEmployeeTransactions || []
     console.log(`Total employee transactions fetched: ${transactions.length}`)
     
     // Получаем зарплаты только сотрудников
@@ -84,44 +81,38 @@ export async function GET() {
     
     if (salError) throw salError
     
-    // Получаем ВСЕ транзакции для общей статистики (включая менеджеров)
-    console.log('Fetching ALL transactions for global statistics...')
-    let allTransactions: any[] = []
-    let totalFrom = 0
-    const totalLimit = 1000
-    let totalHasMore = true
+    // Получаем общую статистику более эффективно
+    console.log('Calculating total statistics...')
     
-    while (totalHasMore) {
-      const { data: totalBatch, error: totalBatchError } = await supabase
-        .from('transactions')
-        .select('*, employee:employees(username, is_manager)')
-        .eq('month', currentMonth)
-        .range(totalFrom, totalFrom + totalLimit - 1)
-        .order('created_at', { ascending: false })
-      
-      if (totalBatchError) {
-        console.error(`Error fetching total batch from ${totalFrom}:`, totalBatchError)
-        break
-      }
-      
-      if (totalBatch && totalBatch.length > 0) {
-        allTransactions = [...allTransactions, ...totalBatch]
-        totalFrom += totalLimit
-        totalHasMore = totalBatch.length === totalLimit
-      } else {
-        totalHasMore = false
-      }
+    // Получаем список менеджеров и тестовых аккаунтов для исключения
+    const { data: managersAndTest } = await supabase
+      .from('employees')
+      .select('id')
+      .or('is_manager.eq.true,username.eq.@sobroffice')
+    
+    const excludeIds = managersAndTest?.map(e => e.id) || []
+    
+    // Считаем общий профит напрямую через агрегацию в базе
+    let statsQuery = supabase
+      .from('transactions')
+      .select('gross_profit_usd')
+      .eq('month', currentMonth)
+    
+    // Добавляем исключение только если есть ID для исключения
+    if (excludeIds.length > 0) {
+      statsQuery = statsQuery.not('employee_id', 'in', `(${excludeIds.join(',')})`)
     }
     
-    // Рассчитываем ОБЩУЮ статистику ТОЛЬКО от сотрудников (исключаем менеджеров и тестовые аккаунты)
-    const totalGross = allTransactions?.reduce((sum, t) => {
-      // Исключаем менеджеров и тестовый аккаунт @sobroffice
-      if (t.employee?.is_manager || t.employee?.username === '@sobroffice') {
-        return sum
-      }
-      return sum + (t.gross_profit_usd || 0)
-    }, 0) || 0
-    console.log(`Total gross from EMPLOYEES only: $${totalGross.toFixed(2)} (${allTransactions.length} total transactions)`)
+    const { data: statsData, error: statsError } = await statsQuery
+    
+    if (statsError) {
+      console.error('Error fetching stats:', statsError)
+    }
+    
+    const totalGross = statsData?.reduce((sum, t) => sum + (t.gross_profit_usd || 0), 0) || 0
+    const totalTransactionCount = statsData?.length || 0
+    
+    console.log(`Total gross from EMPLOYEES only: $${totalGross.toFixed(2)} (${totalTransactionCount} transactions)`)
     
     // Статистика по сотрудникам с расчетом заработка на лету
     const employeeStats = employees?.map(emp => {
@@ -205,9 +196,9 @@ export async function GET() {
       emp.rank = index + 1
     })
     
-    // Статистика по казино (от ВСЕХ включая менеджеров)
+    // Статистика по казино (только от сотрудников)
     const casinoStats: Record<string, any> = {}
-    allTransactions?.forEach(t => {
+    transactions?.forEach(t => {
       if (t.casino_name) {
         if (!casinoStats[t.casino_name]) {
           casinoStats[t.casino_name] = {
@@ -219,7 +210,7 @@ export async function GET() {
         }
         casinoStats[t.casino_name].totalGross += t.gross_profit_usd || 0
         casinoStats[t.casino_name].transactionCount++
-        casinoStats[t.casino_name].employees.add(t.employee?.username)
+        casinoStats[t.casino_name].employees.add(t.employee_id)
       }
     })
     
@@ -236,7 +227,7 @@ export async function GET() {
     const currentUserStats = employeeStats.find(emp => emp.id === user.id)
     
     // Последние обновления от ВСЕХ (включая менеджеров)
-    const recentUpdates = allTransactions
+    const recentUpdates = recentTransactionsData
       ?.filter(t => {
         // Показываем записи где есть депозит > 0 ИЛИ вывод > 0
         const hasDeposit = (t.deposit_usd || 0) > 0
@@ -317,7 +308,7 @@ export async function GET() {
         stats: {
           totalGross,
           employeeCount: employees?.length || 0,
-          transactionCount: allTransactions?.length || 0, // Общее количество транзакций от ВСЕХ
+          transactionCount: totalTransactionCount, // Общее количество транзакций от сотрудников
           casinoCount: sortedCasinos.length
         },
         leaderboard: employeeStats.sort((a, b) => a.rank - b.rank),
