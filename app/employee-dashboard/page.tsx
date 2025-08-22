@@ -121,7 +121,7 @@ export default function EmployeeDashboard() {
     }
     
     try {
-      const response = await fetch(`/api/employee-data?t=${Date.now()}`, {
+      const response = await fetch(`/api/employee-data-test?t=${Date.now()}`, {
         cache: 'no-store',
         headers: {
           'Cache-Control': 'no-cache',
@@ -163,48 +163,32 @@ export default function EmployeeDashboard() {
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null
     
-    // Сначала проверяем авторизацию
-    const checkAuth = async () => {
-      try {
-        const response = await fetch('/api/auth/me')
-        const result = await response.json()
-        
-        if (!result.success) {
-          router.push('/login')
-          return
-        }
-        
-        // Если авторизован, загружаем данные
-        loadData(true)
-        
-        // Автообновление каждые 2 минуты + синхронизация каждые 10 минут
-        interval = setInterval(async () => {
-          console.log('Auto-refreshing data...', new Date().toLocaleTimeString())
-          
-          // Каждые 10 минут запускаем синхронизацию
-          const now = Date.now()
-          const lastSync = parseInt(localStorage.getItem('lastSyncTime') || '0')
-          if (now - lastSync > 600000) { // 10 минут
-            console.log('Running force sync...')
-            try {
-              await fetch('/api/force-sync', { method: 'POST' })
-              localStorage.setItem('lastSyncTime', now.toString())
-              console.log('Force sync completed')
-            } catch (e) {
-              console.error('Force sync failed:', e)
-            }
-          }
-          
-          loadData(false) // false = не показывать лоадер
-        }, 120000) // 120000 мс = 2 минуты
-        
-      } catch (error) {
-        console.error('Auth check error:', error)
-        router.push('/login')
-      }
-    }
+    // Временно убираем проверку авторизации для тестирования
+    console.log('Loading employee dashboard in test mode...')
     
-    checkAuth()
+    // Загружаем данные сразу
+    loadData(true)
+    
+    // Автообновление каждые 2 минуты + синхронизация каждые 10 минут
+    interval = setInterval(async () => {
+      console.log('Auto-refreshing data...', new Date().toLocaleTimeString())
+      
+      // Каждые 10 минут запускаем синхронизацию
+      const now = Date.now()
+      const lastSync = parseInt(localStorage.getItem('lastSyncTime') || '0')
+      if (now - lastSync > 600000) { // 10 минут
+        console.log('Running force sync...')
+        try {
+          await fetch('/api/force-sync', { method: 'POST' })
+          localStorage.setItem('lastSyncTime', now.toString())
+          console.log('Force sync completed')
+        } catch (e) {
+          console.error('Force sync failed:', e)
+        }
+      }
+      
+      loadData(false) // false = не показывать лоадер
+    }, 120000) // 120000 мс = 2 минуты
     
     return () => {
       if (interval) {

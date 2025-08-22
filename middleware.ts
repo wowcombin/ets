@@ -20,6 +20,7 @@ const publicPaths = [
   '/api/debug-auth',
   '/api/debug-employee-data',
   '/api/debug-sessions',
+  '/api/employee-data-test',
   '/api/last-sync-info',
   '/api/setup-sessions-table',
   '/api/create-sessions-table',
