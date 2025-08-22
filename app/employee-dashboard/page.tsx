@@ -121,7 +121,7 @@ export default function EmployeeDashboard() {
     }
     
     try {
-      const response = await fetch('/api/employee-data', {
+      const response = await fetch(`/api/employee-data?t=${Date.now()}`, {
         cache: 'no-store',
         headers: {
           'Cache-Control': 'no-cache',
@@ -131,11 +131,11 @@ export default function EmployeeDashboard() {
       const result = await response.json()
       
       if (result.success && result.data) {
-        // Обновляем данные только если они валидные
-        if (result.data.stats && result.data.leaderboard && result.data.leaderboard.length > 0) {
+        // Обновляем данные если они валидные (убираем строгую проверку leaderboard)
+        if (result.data.stats) {
           setData(result.data)
           setLastUpdated(new Date())
-          console.log('Data updated successfully')
+          console.log('Data updated successfully at', new Date().toLocaleTimeString())
         } else {
           console.log('Invalid data received, keeping previous data')
         }
@@ -177,10 +177,11 @@ export default function EmployeeDashboard() {
         // Если авторизован, загружаем данные
         loadData(true)
         
-        // Автообновление каждые 5 минут
+        // Автообновление каждые 2 минуты
         interval = setInterval(() => {
+          console.log('Auto-refreshing data...', new Date().toLocaleTimeString())
           loadData(false) // false = не показывать лоадер
-        }, 300000) // 300000 мс = 5 минут
+        }, 120000) // 120000 мс = 2 минуты
         
       } catch (error) {
         console.error('Auth check error:', error)
