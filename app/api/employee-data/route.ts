@@ -164,13 +164,6 @@ export async function GET() {
       }
     }) || []
     
-    // Сортируем по профиту (gross_profit) для правильного отображения лидеров
-    employeeStats.sort((a, b) => {
-      const profitA = a.totalGross || 0
-      const profitB = b.totalGross || 0
-      return profitB - profitA
-    })
-    
     // Определяем лидера месяца (один сотрудник с самой большой транзакцией)
     let monthLeader: any = null
     let maxTransactionValue = 0
@@ -194,7 +187,14 @@ export async function GET() {
       console.log(`Month leader: ${monthLeader.username} with transaction $${maxTransactionValue}, bonus: $${leaderBonus}`)
     }
     
-    // Устанавливаем ранги после сортировки по зарплате
+    // Теперь сортируем по итоговой зарплате (включая все бонусы)
+    employeeStats.sort((a, b) => {
+      const salaryA = a.salary?.total_salary || 0
+      const salaryB = b.salary?.total_salary || 0
+      return salaryB - salaryA
+    })
+    
+    // Устанавливаем ранги после финальной сортировки
     employeeStats.forEach((emp, index) => {
       emp.rank = index + 1
     })
