@@ -626,28 +626,28 @@ export async function GET() {
     // Проверяем финальные данные в БД - получаем ВСЕ транзакции для правильного подсчета
     console.log('Calculating final totals from ALL transactions in database...')
     let allDbTransactions: any[] = []
-    let from = 0
-    const limit = 1000
-    let hasMore = true
+    let dbFrom = 0
+    const dbLimit = 1000
+    let dbHasMore = true
     
-    while (hasMore) {
+    while (dbHasMore) {
       const { data: batch, error: batchError } = await supabase
         .from('transactions')
         .select('gross_profit_usd')
         .eq('month', monthCode)
-        .range(from, from + limit - 1)
+        .range(dbFrom, dbFrom + dbLimit - 1)
       
       if (batchError) {
-        console.error(`Error fetching final batch from ${from}:`, batchError)
+        console.error(`Error fetching final batch from ${dbFrom}:`, batchError)
         break
       }
       
       if (batch && batch.length > 0) {
         allDbTransactions = [...allDbTransactions, ...batch]
-        from += limit
-        hasMore = batch.length === limit
+        dbFrom += dbLimit
+        dbHasMore = batch.length === dbLimit
       } else {
-        hasMore = false
+        dbHasMore = false
       }
     }
     
