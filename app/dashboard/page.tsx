@@ -327,6 +327,13 @@ export default function DashboardPage() {
                 <Wallet className="w-4 h-4" />
                 USDT Запросы
               </button>
+              
+              <button
+                onClick={() => router.push('/data-generator')}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center gap-2 transition-colors"
+              >
+                🎲 Генератор
+              </button>
             </div>
           </div>
         </div>

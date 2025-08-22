@@ -278,6 +278,13 @@ export default function EmployeeDashboard() {
                 <User className="w-4 h-4 mr-2" />
                 Профиль
               </Button>
+              <Button
+                onClick={() => router.push('/data-generator')}
+                variant="outline"
+                className="text-green-400 border-green-400 hover:bg-green-900/20"
+              >
+                🎲 Генератор
+              </Button>
               
               <Button
                 onClick={logout}
