@@ -23,6 +23,7 @@ const publicPaths = [
   '/api/employee-data-test',
   '/api/debug-google-sheets',
   '/api/force-import',
+  '/api/check-db-structure',
   '/api/last-sync-info',
   '/api/setup-sessions-table',
   '/api/create-sessions-table',
