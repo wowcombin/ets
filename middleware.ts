@@ -25,6 +25,7 @@ const publicPaths = [
   '/api/force-import',
   '/api/check-db-structure',
   '/api/fix-transactions-table',
+  '/api/clean-duplicates',
   '/api/last-sync-info',
   '/api/setup-sessions-table',
   '/api/create-sessions-table',
