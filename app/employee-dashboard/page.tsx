@@ -158,17 +158,20 @@ export default function EmployeeDashboard() {
       const liveResult = await liveResponse.json()
       
       if (result.success) {
-        // Объединяем основные данные с живыми обновлениями
+        // Объединяем основные данные с живыми обновлениями, сохраняя старую информацию
         const combinedData = {
           ...result.data,
           recentUpdates: liveResult.success ? liveResult.data.liveUpdates : result.data.recentUpdates || []
         }
         
-        setData(combinedData)
+        setData(prevData => ({
+          ...combinedData,
+          // Сохраняем старые данные если новые не загрузились
+          stats: combinedData.stats || prevData?.stats,
+          leaderboard: combinedData.leaderboard || prevData?.leaderboard || []
+        }))
         setLastUpdated(new Date())
         console.log('Employee data updated:', new Date().toLocaleTimeString())
-        console.log('Live updates count:', liveResult.success ? liveResult.data.liveUpdates?.length || 0 : 0)
-        console.log('Sample live update:', liveResult.success ? liveResult.data.liveUpdates?.[0] : null)
       } else {
         console.error('Employee data API error:', result)
         if (response.status === 401) {
@@ -197,18 +200,11 @@ export default function EmployeeDashboard() {
     // Первая загрузка с показом лоадера
     loadData(true)
     
-    // Автообновление каждые 3 минуты с синхронизацией каждые 6 минут
-    let syncCounter = 0
+    // Автообновление каждые 5 минут с синхронизацией
     const interval = setInterval(() => {
-      syncCounter++
-      // Каждое второе обновление (каждые 6 минут) запускаем синхронизацию
-      const shouldSync = syncCounter % 2 === 0
-      loadData(false, shouldSync) // false = не показывать лоадер, shouldSync = синхронизация каждые 6 мин
-      
-      if (shouldSync) {
-        console.log('Auto sync triggered at:', new Date().toLocaleTimeString())
-      }
-    }, 180000) // 180000 мс = 3 минуты (более частое обновление)
+      loadData(false, true) // false = не показывать лоадер, true = синхронизация
+      console.log('Auto sync triggered at:', new Date().toLocaleTimeString())
+    }, 300000) // 300000 мс = 5 минут
     
     return () => clearInterval(interval)
   }, [router])
@@ -273,16 +269,6 @@ export default function EmployeeDashboard() {
             </div>
             
             <div className="flex gap-3">
-              <Button
-                onClick={() => loadData(true, true)} // triggerSync = true
-                variant="outline"
-                className="text-green-400 border-green-400 hover:bg-green-900/20"
-                disabled={loading}
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                Обновить
-              </Button>
-              
               <Button
                 onClick={() => router.push('/profile')}
                 variant="outline"
