@@ -62,18 +62,19 @@ function delay(ms: number) {
 export async function performSync() {
   const startTime = Date.now()
   const results = {
-    stats: {
-      employeesProcessed: 0,
-      transactionsCreated: 0,
-      cardsProcessed: 0,
-      themesProcessed: 0,
-      totalGross: 0,
-      totalNet: 0,
-      totalExpenses: 0,
-      salariesCalculated: 0,
-      firedEmployees: 0,
-      activeEmployees: 0
-    },
+          stats: {
+        employeesProcessed: 0,
+        transactionsCreated: 0,
+        transactionsUpdated: 0,
+        cardsProcessed: 0,
+        themesProcessed: 0,
+        totalGross: 0,
+        totalNet: 0,
+        totalExpenses: 0,
+        salariesCalculated: 0,
+        firedEmployees: 0,
+        activeEmployees: 0
+      },
     details: [] as any[],
     errors: [] as string[],
     employeesList: [] as any[],
@@ -532,37 +533,88 @@ export async function performSync() {
     console.log(`Total gross calculated: $${calculatedTotalGross.toFixed(2)}`)
     console.log(`Employees with transactions: ${processedEmployees}`)
     
-    // Вставляем только новые транзакции (уже отфильтрованные от дубликатов)
+    // Обновляем существующие и вставляем новые транзакции
     if (allTransactions.length > 0) {
-      const batchSize = 500
+      const batchSize = 100
       let insertedCount = 0
+      let updatedCount = 0
       
-      console.log(`Inserting ${allTransactions.length} NEW transactions (duplicates already filtered)...`)
+      console.log(`Processing ${allTransactions.length} transactions (update or insert)...`)
       
       for (let i = 0; i < allTransactions.length; i += batchSize) {
         const batch = allTransactions.slice(i, i + batchSize)
         
-        const { error, data } = await supabase
-          .from('transactions')
-          .insert(batch)
-          .select()
-        
-        if (error) {
-          console.error(`Batch insert error:`, error)
-          results.errors.push(`Batch error: ${error.message}`)
-        } else {
-          insertedCount += data?.length || 0
-          console.log(`Batch ${i}: Inserted ${data?.length} transactions`)
+        for (const transaction of batch) {
+          // Создаем уникальный ключ для транзакции
+          const uniqueKey = `${transaction.employee_id}_${transaction.month}_${transaction.casino_name}`
+          
+          // Проверяем существует ли транзакция
+          const { data: existing, error: checkError } = await supabase
+            .from('transactions')
+            .select('id, deposit_usd, withdrawal_usd')
+            .eq('employee_id', transaction.employee_id)
+            .eq('month', transaction.month)
+            .eq('casino_name', transaction.casino_name)
+            .single()
+          
+          if (checkError && checkError.code !== 'PGRST116') {
+            console.error(`Check error for ${uniqueKey}:`, checkError)
+            continue
+          }
+          
+          if (existing) {
+            // Обновляем только если данные изменились
+            if (existing.deposit_usd !== transaction.deposit_usd || 
+                existing.withdrawal_usd !== transaction.withdrawal_usd) {
+              const { error: updateError } = await supabase
+                .from('transactions')
+                .update({
+                  deposit_gbp: transaction.deposit_gbp,
+                  withdrawal_gbp: transaction.withdrawal_gbp,
+                  deposit_usd: transaction.deposit_usd,
+                  withdrawal_usd: transaction.withdrawal_usd,
+                  gross_profit_usd: transaction.gross_profit_usd,
+                  net_profit_usd: transaction.net_profit_usd,
+                  card_number: transaction.card_number,
+                  sync_timestamp: new Date().toISOString()
+                })
+                .eq('id', existing.id)
+              
+              if (updateError) {
+                console.error(`Update error for ${uniqueKey}:`, updateError)
+              } else {
+                updatedCount++
+                console.log(`Updated: ${uniqueKey}`)
+              }
+            }
+          } else {
+            // Вставляем новую транзакцию
+            const { error: insertError } = await supabase
+              .from('transactions')
+              .insert({
+                ...transaction,
+                sync_timestamp: new Date().toISOString()
+              })
+            
+            if (insertError) {
+              console.error(`Insert error for ${uniqueKey}:`, insertError)
+            } else {
+              insertedCount++
+            }
+          }
         }
         
         await delay(100)
+        console.log(`Batch ${i}: Processed ${batch.length} transactions`)
       }
       
-      console.log(`Total NEW transactions inserted: ${insertedCount}`)
+      console.log(`Total transactions - Inserted: ${insertedCount}, Updated: ${updatedCount}`)
       results.stats.transactionsCreated = insertedCount
+      results.stats.transactionsUpdated = updatedCount
     } else {
-      console.log('No new transactions to insert (all were duplicates)')
+      console.log('No transactions to process')
       results.stats.transactionsCreated = 0
+      results.stats.transactionsUpdated = 0
     }
     
     // Читаем расходы
@@ -717,7 +769,7 @@ export async function performSync() {
       errors: results.errors,
       employeesList: results.employeesList,
       workSessionsAnalyzed: results.workSessionsAnalyzed || 0,
-      message: `Обработано ${results.stats.employeesProcessed} сотрудников (активных: ${results.stats.activeEmployees}, уволенных: ${results.stats.firedEmployees}), ${results.stats.transactionsCreated} транзакций. Создано ${results.workSessionsAnalyzed || 0} рабочих сессий.`
+      message: `Обработано ${results.stats.employeesProcessed} сотрудников (активных: ${results.stats.activeEmployees}, уволенных: ${results.stats.firedEmployees}). Транзакций: создано ${results.stats.transactionsCreated}, обновлено ${results.stats.transactionsUpdated || 0}. Создано ${results.workSessionsAnalyzed || 0} рабочих сессий.`
     })
     
   } catch (error: any) {
