@@ -103,10 +103,10 @@ export async function GET() {
     const sheets = google.sheets({ version: 'v4', auth })
     const supabase = getServiceSupabase()
     
-    // Очищаем старые данные за текущий месяц
-    console.log(`Clearing old data for ${monthCode}...`)
+    // НЕ удаляем транзакции! Только обновляем/добавляем новые
+    console.log(`Updating data for ${monthCode} (not deleting existing)...`)
     
-    await supabase.from('transactions').delete().eq('month', monthCode)
+    // Очищаем только расходы и зарплаты для пересчета
     await supabase.from('expenses').delete().eq('month', monthCode)
     await supabase.from('salaries').delete().eq('month', monthCode)
     
@@ -313,6 +313,8 @@ export async function GET() {
                   card_number: cardNumber,
                   gross_profit_usd: grossProfit,
                   net_profit_usd: grossProfit,
+                  last_updated: new Date().toISOString(),
+                  sync_timestamp: new Date().toISOString()
                 })
                 
                 employeeGross += grossProfit
@@ -375,6 +377,8 @@ export async function GET() {
               card_number: cardNumber,
               gross_profit_usd: grossProfit,
               net_profit_usd: grossProfit,
+              last_updated: new Date().toISOString(),
+              sync_timestamp: new Date().toISOString()
             })
             
             testGross += grossProfit
@@ -461,30 +465,53 @@ export async function GET() {
     console.log(`Total gross calculated: $${calculatedTotalGross.toFixed(2)}`)
     console.log(`Employees with transactions: ${processedEmployees}`)
     
-    // Сохраняем транзакции батчами
+    // Сохраняем только новые транзакции (не перезаписываем существующие)
     if (allTransactions.length > 0) {
       const batchSize = 500
       let insertedCount = 0
       
       for (let i = 0; i < allTransactions.length; i += batchSize) {
         const batch = allTransactions.slice(i, i + batchSize)
-        const { error, data } = await supabase
-          .from('transactions')
-          .insert(batch)
-          .select()
         
-        if (error) {
-          console.error(`Batch insert error:`, error)
-          results.errors.push(`Batch error: ${error.message}`)
+        // Проверяем какие транзакции уже существуют
+        const existingCheck = await supabase
+          .from('transactions')
+          .select('id, employee_id, casino_name, deposit_usd, withdrawal_usd, card_number')
+          .eq('month', monthCode)
+        
+        const existingTransactions = new Set()
+        existingCheck.data?.forEach(t => {
+          const key = `${t.employee_id}_${t.casino_name}_${t.deposit_usd}_${t.withdrawal_usd}_${t.card_number || ''}`
+          existingTransactions.add(key)
+        })
+        
+        // Фильтруем только новые транзакции
+        const newTransactions = batch.filter(t => {
+          const key = `${t.employee_id}_${t.casino_name}_${t.deposit_usd}_${t.withdrawal_usd}_${t.card_number || ''}`
+          return !existingTransactions.has(key)
+        })
+        
+        if (newTransactions.length > 0) {
+          const { error, data } = await supabase
+            .from('transactions')
+            .insert(newTransactions)
+            .select()
+          
+          if (error) {
+            console.error(`Batch insert error:`, error)
+            results.errors.push(`Batch error: ${error.message}`)
+          } else {
+            insertedCount += data?.length || 0
+            console.log(`Inserted ${data?.length} new transactions (skipped ${batch.length - newTransactions.length} existing)`)
+          }
         } else {
-          insertedCount += data?.length || 0
-          console.log(`Inserted batch: ${data?.length} records`)
+          console.log(`Skipped batch - all ${batch.length} transactions already exist`)
         }
         
         await delay(100)
       }
       
-      console.log(`Total inserted to DB: ${insertedCount} transactions`)
+      console.log(`Total new transactions inserted: ${insertedCount}`)
       results.stats.transactionsCreated = insertedCount
     }
     

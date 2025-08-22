@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase/client'
-import { verifyPassword, createSession } from '@/lib/auth'
+import { verifyPassword } from '@/lib/auth'
 import { cookies } from 'next/headers'
 
 export async function POST(request: NextRequest) {
@@ -58,8 +58,8 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    // Создаем сессию
-    const sessionToken = await createSession(employee.id)
+    // Создаем простой токен формата employeeId_timestamp
+    const sessionToken = `${employee.id}_${Date.now()}`
     
     // Устанавливаем cookie
     const cookieStore = cookies()
