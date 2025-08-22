@@ -166,8 +166,8 @@ export async function GET() {
     
     // Сортируем по профиту (gross_profit) для правильного отображения лидеров
     employeeStats.sort((a, b) => {
-      const profitA = a.total_gross || 0
-      const profitB = b.total_gross || 0
+      const profitA = a.totalGross || 0
+      const profitB = b.totalGross || 0
       return profitB - profitA
     })
     
