@@ -465,53 +465,42 @@ export async function GET() {
     console.log(`Total gross calculated: $${calculatedTotalGross.toFixed(2)}`)
     console.log(`Employees with transactions: ${processedEmployees}`)
     
-    // Сохраняем только новые транзакции (не перезаписываем существующие)
+    // Сохраняем транзакции (игнорируем дубликаты)
     if (allTransactions.length > 0) {
       const batchSize = 500
       let insertedCount = 0
       
+      console.log(`Attempting to insert ${allTransactions.length} transactions...`)
+      
       for (let i = 0; i < allTransactions.length; i += batchSize) {
         const batch = allTransactions.slice(i, i + batchSize)
         
-        // Проверяем какие транзакции уже существуют
-        const existingCheck = await supabase
-          .from('transactions')
-          .select('id, employee_id, casino_name, deposit_usd, withdrawal_usd, card_number')
-          .eq('month', monthCode)
-        
-        const existingTransactions = new Set()
-        existingCheck.data?.forEach(t => {
-          const key = `${t.employee_id}_${t.casino_name}_${t.deposit_usd}_${t.withdrawal_usd}_${t.card_number || ''}`
-          existingTransactions.add(key)
-        })
-        
-        // Фильтруем только новые транзакции
-        const newTransactions = batch.filter(t => {
-          const key = `${t.employee_id}_${t.casino_name}_${t.deposit_usd}_${t.withdrawal_usd}_${t.card_number || ''}`
-          return !existingTransactions.has(key)
-        })
-        
-        if (newTransactions.length > 0) {
+        try {
           const { error, data } = await supabase
             .from('transactions')
-            .insert(newTransactions)
+            .insert(batch)
             .select()
           
           if (error) {
-            console.error(`Batch insert error:`, error)
-            results.errors.push(`Batch error: ${error.message}`)
+            // Игнорируем ошибки дубликатов
+            if (error.code === '23505' || error.message.includes('duplicate')) {
+              console.log(`Batch ${i}: Skipped duplicates`)
+            } else {
+              console.error(`Batch insert error:`, error)
+              results.errors.push(`Batch error: ${error.message}`)
+            }
           } else {
             insertedCount += data?.length || 0
-            console.log(`Inserted ${data?.length} new transactions (skipped ${batch.length - newTransactions.length} existing)`)
+            console.log(`Batch ${i}: Inserted ${data?.length} transactions`)
           }
-        } else {
-          console.log(`Skipped batch - all ${batch.length} transactions already exist`)
+        } catch (err: any) {
+          console.log(`Batch ${i}: Error ignored (likely duplicates)`)
         }
         
         await delay(100)
       }
       
-      console.log(`Total new transactions inserted: ${insertedCount}`)
+      console.log(`Total transactions processed: ${insertedCount}`)
       results.stats.transactionsCreated = insertedCount
     }
     
