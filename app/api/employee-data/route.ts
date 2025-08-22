@@ -84,8 +84,37 @@ export async function GET() {
     
     if (salError) throw salError
     
-    // Рассчитываем статистику без расходов и данных менеджеров
-    const totalGross = transactions?.reduce((sum, t) => sum + (t.gross_profit_usd || 0), 0) || 0
+    // Получаем ВСЕ транзакции для подсчета общего профита (включая менеджеров)
+    console.log('Fetching ALL transactions for total gross calculation...')
+    let allTransactionsForTotal: any[] = []
+    let totalFrom = 0
+    const totalLimit = 1000
+    let totalHasMore = true
+    
+    while (totalHasMore) {
+      const { data: totalBatch, error: totalBatchError } = await supabase
+        .from('transactions')
+        .select('gross_profit_usd')
+        .eq('month', currentMonth)
+        .range(totalFrom, totalFrom + totalLimit - 1)
+      
+      if (totalBatchError) {
+        console.error(`Error fetching total batch from ${totalFrom}:`, totalBatchError)
+        break
+      }
+      
+      if (totalBatch && totalBatch.length > 0) {
+        allTransactionsForTotal = [...allTransactionsForTotal, ...totalBatch]
+        totalFrom += totalLimit
+        totalHasMore = totalBatch.length === totalLimit
+      } else {
+        totalHasMore = false
+      }
+    }
+    
+    // Рассчитываем ОБЩИЙ профит от ВСЕХ (включая менеджеров)
+    const totalGross = allTransactionsForTotal?.reduce((sum, t) => sum + (t.gross_profit_usd || 0), 0) || 0
+    console.log(`Total gross from ALL transactions: $${totalGross.toFixed(2)} (${allTransactionsForTotal.length} transactions)`)
     
     // Статистика по сотрудникам с расчетом заработка на лету
     const employeeStats = employees?.map(emp => {
