@@ -89,7 +89,7 @@ export async function GET() {
         monthLabel: getMonthLabel(month),
         grossProfit: totalGross,
         netProfit: totalGross, // В будущем можно добавить вычет расходов
-        salary: salary?.amount || calculateSalary(totalGross, user.profit_percentage),
+        salary: salary?.amount || calculateSalary(totalGross, user.profit_percentage || 10),
         bonus: salary?.bonus || (totalGross >= 2000 ? 200 : 0),
         leaderBonus: salary?.leader_bonus || 0,
         isPaid: salary?.is_paid || false,
