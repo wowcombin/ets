@@ -38,7 +38,8 @@ const publicPaths = [
   '/api/create-usdt-table',
   '/api/upgrade-transactions-table',
   '/api/live-updates',
-  '/api/track-sheet-changes'
+  '/api/track-sheet-changes',
+  '/api/debug-transactions'
 ]
 
 export function middleware(request: NextRequest) {
