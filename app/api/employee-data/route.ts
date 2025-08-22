@@ -84,9 +84,9 @@ export async function GET() {
     
     if (salError) throw salError
     
-    // Получаем ВСЕ транзакции для подсчета общего профита (включая менеджеров)
-    console.log('Fetching ALL transactions for total gross calculation...')
-    let allTransactionsForTotal: any[] = []
+    // Получаем ВСЕ транзакции для общей статистики (включая менеджеров)
+    console.log('Fetching ALL transactions for global statistics...')
+    let allTransactions: any[] = []
     let totalFrom = 0
     const totalLimit = 1000
     let totalHasMore = true
@@ -94,9 +94,10 @@ export async function GET() {
     while (totalHasMore) {
       const { data: totalBatch, error: totalBatchError } = await supabase
         .from('transactions')
-        .select('gross_profit_usd')
+        .select('*, employee:employees(username, is_manager)')
         .eq('month', currentMonth)
         .range(totalFrom, totalFrom + totalLimit - 1)
+        .order('created_at', { ascending: false })
       
       if (totalBatchError) {
         console.error(`Error fetching total batch from ${totalFrom}:`, totalBatchError)
@@ -104,7 +105,7 @@ export async function GET() {
       }
       
       if (totalBatch && totalBatch.length > 0) {
-        allTransactionsForTotal = [...allTransactionsForTotal, ...totalBatch]
+        allTransactions = [...allTransactions, ...totalBatch]
         totalFrom += totalLimit
         totalHasMore = totalBatch.length === totalLimit
       } else {
@@ -112,9 +113,9 @@ export async function GET() {
       }
     }
     
-    // Рассчитываем ОБЩИЙ профит от ВСЕХ (включая менеджеров)
-    const totalGross = allTransactionsForTotal?.reduce((sum, t) => sum + (t.gross_profit_usd || 0), 0) || 0
-    console.log(`Total gross from ALL transactions: $${totalGross.toFixed(2)} (${allTransactionsForTotal.length} transactions)`)
+    // Рассчитываем ОБЩУЮ статистику от ВСЕХ (включая менеджеров)
+    const totalGross = allTransactions?.reduce((sum, t) => sum + (t.gross_profit_usd || 0), 0) || 0
+    console.log(`Total gross from ALL: $${totalGross.toFixed(2)} (${allTransactions.length} transactions)`)
     
     // Статистика по сотрудникам с расчетом заработка на лету
     const employeeStats = employees?.map(emp => {
@@ -198,9 +199,9 @@ export async function GET() {
       emp.rank = index + 1
     })
     
-    // Статистика по казино (только от сотрудников)
+    // Статистика по казино (от ВСЕХ включая менеджеров)
     const casinoStats: Record<string, any> = {}
-    transactions?.forEach(t => {
+    allTransactions?.forEach(t => {
       if (t.casino_name) {
         if (!casinoStats[t.casino_name]) {
           casinoStats[t.casino_name] = {
@@ -228,8 +229,8 @@ export async function GET() {
     // Данные текущего пользователя
     const currentUserStats = employeeStats.find(emp => emp.id === user.id)
     
-    // Последние обновления (где есть заполненные клетки > 0)
-    const recentUpdates = transactions
+    // Последние обновления от ВСЕХ (включая менеджеров)
+    const recentUpdates = allTransactions
       ?.filter(t => {
         // Показываем записи где есть депозит > 0 ИЛИ вывод > 0
         const hasDeposit = (t.deposit_usd || 0) > 0
@@ -311,7 +312,7 @@ export async function GET() {
         stats: {
           totalGross,
           employeeCount: employees?.length || 0,
-          transactionCount: transactions?.length || 0,
+          transactionCount: allTransactions?.length || 0, // Общее количество транзакций от ВСЕХ
           casinoCount: sortedCasinos.length
         },
         leaderboard: employeeStats,
