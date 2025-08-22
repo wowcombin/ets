@@ -60,7 +60,7 @@ export async function GET() {
     console.log('Fetching all employee transactions for statistics...')
     const { data: allEmployeeTransactions, error: allError } = await supabase
       .from('transactions')
-      .select('employee_id, gross_profit_usd, deposit_usd, withdrawal_usd, casino_name, card_number')
+      .select('employee_id, gross_profit_usd, deposit_usd, withdrawal_usd, casino_name, card_number, created_at, sync_timestamp')
       .eq('month', currentMonth)
       .in('employee_id', employeeIds)
     
