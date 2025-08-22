@@ -42,7 +42,8 @@ const publicPaths = [
   '/api/debug-transactions',
   '/api/test-sync',
   '/api/check-latest-transactions',
-  '/api/clean-empty-transactions'
+  '/api/clean-empty-transactions',
+  '/api/clear-and-resync'
 ]
 
 export function middleware(request: NextRequest) {
