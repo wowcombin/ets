@@ -198,19 +198,38 @@ export default function EmployeeDashboard() {
           loadData(false)
         }, 30000)
         
+        // Запускаем синхронизацию через 1 минуту для тестирования
+        setTimeout(async () => {
+          console.log('🔄 First sync after 60s...')
+          try {
+            const res = await fetch('/api/sync-all', {
+              method: 'GET',
+              headers: { 'Content-Type': 'application/json' }
+            })
+            const data = await res.json()
+            console.log('✅ First sync result:', data)
+            if (data.stats?.transactionsCreated > 0) {
+              setTimeout(() => loadData(false), 5000)
+            }
+          } catch (err) {
+            console.error('❌ First sync error:', err)
+          }
+        }, 60000)
+        
         // Автосинхронизация каждые 5 минут
         syncInterval = setInterval(async () => {
           console.log('🔄 Running auto-sync...', new Date().toLocaleTimeString())
           try {
-            const res = await fetch('/api/force-sync', {
-              method: 'POST',
+            // Вызываем sync-all напрямую
+            const res = await fetch('/api/sync-all', {
+              method: 'GET',
               headers: {
                 'Content-Type': 'application/json'
               }
             })
             
             if (!res.ok) {
-              console.error('❌ Force-sync failed:', res.status, res.statusText)
+              console.error('❌ Sync-all failed:', res.status, res.statusText)
               return
             }
             
@@ -218,8 +237,8 @@ export default function EmployeeDashboard() {
             console.log('✅ Auto-sync completed:', data)
             
             // Если были созданы новые транзакции, обновляем данные
-            if (data.syncResult?.transactionsCreated > 0) {
-              console.log(`📊 ${data.syncResult.transactionsCreated} новых транзакций добавлено!`)
+            if (data.stats?.transactionsCreated > 0) {
+              console.log(`📊 ${data.stats.transactionsCreated} новых транзакций добавлено!`)
               setTimeout(() => {
                 console.log('🔄 Loading data after sync...')
                 loadData(false)
@@ -336,14 +355,14 @@ export default function EmployeeDashboard() {
                 onClick={async () => {
                   console.log('🔄 Manual sync triggered...')
                   try {
-                    const res = await fetch('/api/force-sync', {
-                      method: 'POST',
+                    const res = await fetch('/api/sync-all', {
+                      method: 'GET',
                       headers: { 'Content-Type': 'application/json' }
                     })
                     const data = await res.json()
                     console.log('✅ Manual sync result:', data)
-                    if (data.syncResult?.transactionsCreated > 0) {
-                      alert(`Синхронизация завершена! Добавлено ${data.syncResult.transactionsCreated} новых транзакций.`)
+                    if (data.stats?.transactionsCreated > 0) {
+                      alert(`Синхронизация завершена! Добавлено ${data.stats.transactionsCreated} новых транзакций.`)
                       setTimeout(() => loadData(true), 2000)
                     } else {
                       alert('Нет новых транзакций для синхронизации.')
