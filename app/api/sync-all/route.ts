@@ -465,42 +465,70 @@ export async function GET() {
     console.log(`Total gross calculated: $${calculatedTotalGross.toFixed(2)}`)
     console.log(`Employees with transactions: ${processedEmployees}`)
     
-    // Сохраняем транзакции (игнорируем дубликаты)
+    // Обновляем/добавляем транзакции с новыми timestamp
     if (allTransactions.length > 0) {
       const batchSize = 500
+      let processedCount = 0
       let insertedCount = 0
+      let updatedCount = 0
       
-      console.log(`Attempting to insert ${allTransactions.length} transactions...`)
+      console.log(`Processing ${allTransactions.length} transactions from Google Sheets...`)
       
       for (let i = 0; i < allTransactions.length; i += batchSize) {
         const batch = allTransactions.slice(i, i + batchSize)
         
-        try {
-          const { error, data } = await supabase
-            .from('transactions')
-            .insert(batch)
-            .select()
-          
-          if (error) {
-            // Игнорируем ошибки дубликатов
-            if (error.code === '23505' || error.message.includes('duplicate')) {
-              console.log(`Batch ${i}: Skipped duplicates`)
+        // Для каждой транзакции проверяем существует ли она и обновляем timestamp
+        for (const transaction of batch) {
+          try {
+            // Ищем существующую транзакцию по ключевым полям
+            const { data: existing, error: findError } = await supabase
+              .from('transactions')
+              .select('id, sync_timestamp')
+              .eq('employee_id', transaction.employee_id)
+              .eq('month', transaction.month)
+              .eq('casino_name', transaction.casino_name)
+              .eq('deposit_usd', transaction.deposit_usd)
+              .eq('withdrawal_usd', transaction.withdrawal_usd)
+              .eq('card_number', transaction.card_number || '')
+              .single()
+            
+            if (existing) {
+              // Обновляем timestamp существующей записи
+              const { error: updateError } = await supabase
+                .from('transactions')
+                .update({ 
+                  sync_timestamp: new Date().toISOString(),
+                  last_updated: new Date().toISOString()
+                })
+                .eq('id', existing.id)
+              
+              if (!updateError) {
+                updatedCount++
+                console.log(`Updated transaction ${existing.id} timestamp`)
+              }
             } else {
-              console.error(`Batch insert error:`, error)
-              results.errors.push(`Batch error: ${error.message}`)
+              // Добавляем новую транзакцию
+              const { error: insertError, data: insertData } = await supabase
+                .from('transactions')
+                .insert([transaction])
+                .select()
+              
+              if (!insertError && insertData) {
+                insertedCount++
+                console.log(`Inserted new transaction for ${transaction.casino_name}`)
+              }
             }
-          } else {
-            insertedCount += data?.length || 0
-            console.log(`Batch ${i}: Inserted ${data?.length} transactions`)
+            
+            processedCount++
+          } catch (err: any) {
+            console.log(`Error processing transaction: ${err.message}`)
           }
-        } catch (err: any) {
-          console.log(`Batch ${i}: Error ignored (likely duplicates)`)
         }
         
-        await delay(100)
+        await delay(200)
       }
       
-      console.log(`Total transactions processed: ${insertedCount}`)
+      console.log(`Transactions processed: ${processedCount}, New: ${insertedCount}, Updated: ${updatedCount}`)
       results.stats.transactionsCreated = insertedCount
     }
     
