@@ -749,7 +749,14 @@ export default function EmployeeDashboard() {
                     </p>
                     <div className="text-xs text-gray-500">
                       {(() => {
-                        const updateTime = update.created_at || update.display_time
+                        const updateTime = update.created_at || update.display_time || update.sync_timestamp
+                        console.log('Update time data:', { 
+                          created_at: update.created_at, 
+                          display_time: update.display_time,
+                          sync_timestamp: update.sync_timestamp,
+                          updateTime 
+                        })
+                        
                         if (!updateTime) return 'Неизвестно'
                         
                         const now = new Date().getTime()

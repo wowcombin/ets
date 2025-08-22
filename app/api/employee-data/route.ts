@@ -329,6 +329,8 @@ export async function GET() {
           has_withdrawal: t.has_withdrawal,
           card_number: t.card_number,
           created_at: t.created_at,
+          display_time: t.display_time,
+          sync_timestamp: t.sync_timestamp,
           update_type: t.has_deposit && t.has_withdrawal ? 'complete' : t.has_deposit ? 'deposit' : 'withdrawal'
         })),
         accountsActivity: newAccountsActivity.slice(0, 10), // Топ-10 активных аккаунтов
