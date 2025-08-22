@@ -15,17 +15,28 @@ export async function GET() {
     
     console.log(`Cleaning empty transactions for month: ${monthCode}`)
     
+    // Сначала получаем количество транзакций для удаления
+    const { count: toDeleteCount, error: countError } = await supabase
+      .from('transactions')
+      .select('*', { count: 'exact', head: true })
+      .eq('month', monthCode)
+      .eq('deposit_usd', 0)
+      .eq('withdrawal_usd', 0)
+    
+    if (countError) {
+      throw countError
+    }
+    
     // Удаляем транзакции где и депозит и вывод равны нулю
-    const { count: deletedCount, error } = await supabase
+    const { error: deleteError } = await supabase
       .from('transactions')
       .delete()
       .eq('month', monthCode)
       .eq('deposit_usd', 0)
       .eq('withdrawal_usd', 0)
-      .select('*', { count: 'exact', head: true })
     
-    if (error) {
-      throw error
+    if (deleteError) {
+      throw deleteError
     }
     
     // Получаем обновленную статистику
@@ -36,10 +47,10 @@ export async function GET() {
     
     return NextResponse.json({
       success: true,
-      message: `Удалено ${deletedCount || 0} пустых транзакций`,
+      message: `Удалено ${toDeleteCount || 0} пустых транзакций`,
       stats: {
         monthCode,
-        deletedTransactions: deletedCount || 0,
+        deletedTransactions: toDeleteCount || 0,
         remainingTransactions: remainingCount || 0
       }
     })
