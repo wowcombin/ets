@@ -24,6 +24,7 @@ const publicPaths = [
   '/api/debug-google-sheets',
   '/api/force-import',
   '/api/check-db-structure',
+  '/api/fix-transactions-table',
   '/api/last-sync-info',
   '/api/setup-sessions-table',
   '/api/create-sessions-table',
