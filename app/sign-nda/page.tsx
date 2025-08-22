@@ -392,7 +392,7 @@ export default function SignNDAPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="text-sm text-gray-300 space-y-3 max-h-96 overflow-y-auto">
+              <div className="text-sm text-gray-300 space-y-3">
                 <div className="text-center font-bold text-white mb-4">
                   ДОГОВІР ПРО НЕРОЗГОЛОШЕННЯ КОНФІДЕНЦІЙНОЇ ІНФОРМАЦІЇ
                 </div>
