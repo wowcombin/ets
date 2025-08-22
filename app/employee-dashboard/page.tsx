@@ -115,29 +115,12 @@ export default function EmployeeDashboard() {
     year: 'numeric' 
   })
 
-  const loadData = async (showLoader = true, triggerSync = false) => {
+  const loadData = async (showLoader = true) => {
     if (showLoader) {
       setLoading(true)
     }
-    setError(null)
+    
     try {
-      // Если запрошена синхронизация - сначала синхронизируем данные
-      if (triggerSync) {
-        console.log('Triggering sync before loading data...')
-        try {
-          await fetch('/api/auto-sync', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-          })
-          console.log('Sync completed, loading fresh data...')
-          // Небольшая задержка для завершения синхронизации
-          await new Promise(resolve => setTimeout(resolve, 2000))
-        } catch (syncError) {
-          console.error('Sync error:', syncError)
-          // Продолжаем загрузку даже если синхронизация не удалась
-        }
-      }
-      
       const response = await fetch('/api/employee-data', {
         cache: 'no-store',
         headers: {
@@ -147,43 +130,24 @@ export default function EmployeeDashboard() {
       })
       const result = await response.json()
       
-      // Получаем живые обновления отдельно
-      const liveResponse = await fetch('/api/live-updates', {
-        cache: 'no-store',
-        headers: {
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
-        }
-      })
-      const liveResult = await liveResponse.json()
-      
       if (result.success) {
-        // Объединяем основные данные с живыми обновлениями, сохраняя старую информацию
-        const combinedData = {
-          ...result.data,
-          recentUpdates: liveResult.success ? liveResult.data.liveUpdates : result.data.recentUpdates || []
-        }
-        
         setData(prevData => ({
-          ...combinedData,
-          // Сохраняем старые данные если новые не загрузились
-          stats: combinedData.stats || prevData?.stats,
-          leaderboard: combinedData.leaderboard || prevData?.leaderboard || []
+          ...result.data,
+          // Сохраняем старые данные если новые пустые
+          stats: result.data.stats || prevData?.stats,
+          leaderboard: result.data.leaderboard?.length > 0 ? result.data.leaderboard : prevData?.leaderboard || [],
+          recentUpdates: result.data.recentUpdates?.length > 0 ? result.data.recentUpdates : prevData?.recentUpdates || []
         }))
         setLastUpdated(new Date())
-        console.log('Employee data updated:', new Date().toLocaleTimeString())
       } else {
-        console.error('Employee data API error:', result)
         if (response.status === 401) {
-          console.log('Unauthorized - redirecting to login')
           router.push('/login')
           return
         }
         setError(result.error || 'Ошибка загрузки данных')
       }
     } catch (error) {
-      console.error('Error loading employee data:', error)
-      setError(`Ошибка при загрузке данных: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      setError('Ошибка при загрузке данных')
     } finally {
       if (showLoader) {
         setLoading(false)
@@ -200,10 +164,9 @@ export default function EmployeeDashboard() {
     // Первая загрузка с показом лоадера
     loadData(true)
     
-    // Автообновление каждые 5 минут с синхронизацией
+    // Автообновление каждые 5 минут
     const interval = setInterval(() => {
-      loadData(false, true) // false = не показывать лоадер, true = синхронизация
-      console.log('Auto sync triggered at:', new Date().toLocaleTimeString())
+      loadData(false) // false = не показывать лоадер
     }, 300000) // 300000 мс = 5 минут
     
     return () => clearInterval(interval)
@@ -377,47 +340,7 @@ export default function EmployeeDashboard() {
           </Card>
         )}
 
-        {/* Month Leader Info */}
-        {data?.leaderboard && (
-          <Card className="bg-gradient-to-r from-yellow-900/30 to-orange-900/30 border-yellow-500/50 mb-8 shadow-xl">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
-                <Trophy className="w-6 h-6 text-yellow-400" />
-                🏆 Лидер месяца
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {(() => {
-                const leader = data.leaderboard.find(emp => (emp.salary?.leader_bonus || 0) > 0)
-                if (!leader) {
-                  return (
-                    <div className="text-center py-4">
-                      <p className="text-gray-400">Лидер месяца еще не определен</p>
-                    </div>
-                  )
-                }
-                return (
-                  <div className="text-center">
-                    <div className="text-4xl font-bold text-yellow-400 mb-2">
-                      {leader.username}
-                    </div>
-                    <p className="text-lg text-gray-300 mb-4">
-                      Самая большая транзакция: ${(leader.salary?.leader_bonus || 0) / 0.1}
-                    </p>
-                    <div className="bg-yellow-900/20 rounded-lg p-4">
-                      <div className="text-2xl font-bold text-yellow-400">
-                        +${leader.salary?.leader_bonus?.toFixed(2) || '0.00'}
-                      </div>
-                      <p className="text-sm text-gray-400">
-                        Дополнительный бонус (10% от самой большой транзакции)
-                      </p>
-                    </div>
-                  </div>
-                )
-              })()}
-            </CardContent>
-          </Card>
-        )}
+
 
         {/* My Performance Card */}
         {myStats && (

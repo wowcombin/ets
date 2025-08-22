@@ -69,7 +69,15 @@ function getMotivationalMessage(stage: 'start' | 'middle' | 'end', userStats?: a
       }
       
     case 'middle':
-      if (rank <= 3) {
+      if (rank === 1) {
+        return {
+          title: "👑 Ты лидер!",
+          message: "Поздравляем! Ты на первом месте! Удерживай позицию до конца месяца!",
+          emoji: "🏆",
+          color: "from-yellow-600 to-orange-600",
+          icon: <Trophy className="w-6 h-6" />
+        }
+      } else if (rank <= 3) {
         return {
           title: "🔥 Ты в топе!",
           message: `Отличная работа! Ты на ${rank} месте. Поднажми и будешь первым!`,

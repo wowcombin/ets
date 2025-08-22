@@ -99,7 +99,7 @@ export default function AchievementBadges({ userStats }: AchievementBadgesProps)
       description: 'Занять 2 место в рейтинге',
       icon: <Medal className="w-5 h-5" />,
       color: 'bg-gray-500',
-      unlocked: userStats.rank === 2
+      unlocked: userStats.rank === 2 && userStats.rank !== 1
     },
     {
       id: 'month_leader',
@@ -112,7 +112,7 @@ export default function AchievementBadges({ userStats }: AchievementBadgesProps)
   ]
 
   const unlockedAchievements = achievements.filter(a => a.unlocked)
-  const nextAchievement = achievements.find(a => !a.unlocked)
+  const nextAchievement = userStats.rank === 1 ? null : achievements.find(a => !a.unlocked)
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
