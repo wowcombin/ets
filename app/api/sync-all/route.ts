@@ -566,6 +566,39 @@ export async function performSync() {
             // Обновляем только если данные изменились
             if (existing.deposit_usd !== transaction.deposit_usd || 
                 existing.withdrawal_usd !== transaction.withdrawal_usd) {
+              
+              // Сначала записываем историю изменений
+              const oldProfit = existing.withdrawal_usd - existing.deposit_usd
+              const newProfit = transaction.withdrawal_usd - transaction.deposit_usd
+              
+              // Если изменение больше чем на 10% - это подозрительно
+              const changePercent = oldProfit !== 0 ? Math.abs((newProfit - oldProfit) / oldProfit * 100) : 100
+              const isSuspicious = (changePercent > 10 && Math.abs(newProfit - oldProfit) > 50) || 
+                                  (oldProfit === 0 && Math.abs(newProfit) > 100)
+              
+              const { error: historyError } = await supabase
+                .from('transaction_history')
+                .insert({
+                  transaction_id: existing.id,
+                  employee_id: transaction.employee_id,
+                  casino_name: transaction.casino_name,
+                  old_deposit_usd: existing.deposit_usd,
+                  new_deposit_usd: transaction.deposit_usd,
+                  old_withdrawal_usd: existing.withdrawal_usd,
+                  new_withdrawal_usd: transaction.withdrawal_usd,
+                  old_profit_usd: oldProfit,
+                  new_profit_usd: newProfit,
+                  change_type: isSuspicious ? 'correction' : 'update'
+                })
+              
+              if (historyError) {
+                console.error(`History error for ${uniqueKey}:`, historyError)
+              } else if (isSuspicious) {
+                console.warn(`⚠️ SUSPICIOUS CHANGE: ${uniqueKey} - Profit changed from $${oldProfit} to $${newProfit} (${changePercent.toFixed(1)}%)`)
+                results.errors.push(`Suspicious change for ${transaction.casino_name}: $${oldProfit} → $${newProfit}`)
+              }
+              
+              // Теперь обновляем транзакцию
               const { error: updateError } = await supabase
                 .from('transactions')
                 .update({

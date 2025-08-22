@@ -36,7 +36,9 @@ const publicPaths = [
   '/api/clear-and-resync',
   '/api/remove-duplicates',
   '/api/clean-deleted-transactions',
-  '/api/verify-totals'
+  '/api/verify-totals',
+  '/api/setup-transaction-history',
+  '/api/suspicious-changes'
 ]
 
 export function middleware(request: NextRequest) {
