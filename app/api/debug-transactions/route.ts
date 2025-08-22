@@ -17,9 +17,16 @@ export async function GET() {
     if (error) throw error
     
     // Проверяем структуру колонок
-    const { data: columns, error: columnsError } = await supabase
-      .rpc('get_table_columns', { table_name: 'transactions' })
-      .catch(() => ({ data: null, error: 'RPC not available' }))
+    let columns = null
+    let columnsError = null
+    try {
+      const result = await supabase
+        .rpc('get_table_columns', { table_name: 'transactions' })
+      columns = result.data
+      columnsError = result.error
+    } catch (e) {
+      columnsError = 'RPC not available'
+    }
     
     return NextResponse.json({
       success: true,
