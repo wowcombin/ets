@@ -230,8 +230,6 @@ export async function GET() {
     const currentUserStats = employeeStats.find(emp => emp.id === user.id)
     
     // Последние обновления от ВСЕХ (включая менеджеров)
-    console.log('Sample transaction from allTransactions:', allTransactions[0])
-    
     const recentUpdates = allTransactions
       ?.filter(t => {
         // Показываем записи где есть депозит > 0 ИЛИ вывод > 0

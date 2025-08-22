@@ -729,7 +729,9 @@ export default function EmployeeDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {data?.recentUpdates?.slice(0, 10).map((update, index) => (
+              {data?.recentUpdates?.slice(0, 10).map((update, index) => {
+                console.log('Update data:', update)
+                return (
                 <div key={update.id} className="flex items-center justify-between p-3 bg-gray-700/30 rounded-lg border border-gray-600">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-xs font-bold">
@@ -754,28 +756,38 @@ export default function EmployeeDashboard() {
                         
                         if (!updateTime) return 'Неизвестно'
                         
-                        const now = new Date().getTime()
-                        const time = new Date(updateTime).getTime()
-                        
-                        if (isNaN(time)) return 'Неизвестно'
-                        
-                        const minutesAgo = Math.round((now - time) / (1000 * 60))
-                        
-                        if (minutesAgo <= 10) {
-                          return <span className="text-green-400 font-medium">{minutesAgo === 0 ? 'сейчас' : `${minutesAgo} мин назад`}</span>
-                        } else {
-                          return <span>{new Date(updateTime).toLocaleString('ru-RU', { 
-                            day: '2-digit',
-                            month: '2-digit',
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}</span>
+                        try {
+                          const date = new Date(updateTime)
+                          const now = new Date()
+                          const diffMs = now.getTime() - date.getTime()
+                          const diffMinutes = Math.floor(diffMs / (1000 * 60))
+                          
+                          if (diffMinutes < 0 || diffMinutes === 0) {
+                            return <span className="text-green-400 font-medium">сейчас</span>
+                          } else if (diffMinutes < 10) {
+                            return <span className="text-green-400 font-medium">{diffMinutes} мин назад</span>
+                          } else if (diffMinutes < 60) {
+                            return <span>{diffMinutes} мин назад</span>
+                          } else if (diffMinutes < 1440) {
+                            const hours = Math.floor(diffMinutes / 60)
+                            return <span>{hours} час{hours === 1 ? '' : hours < 5 ? 'а' : 'ов'} назад</span>
+                          } else {
+                            return <span>{date.toLocaleString('ru-RU', { 
+                              day: '2-digit',
+                              month: '2-digit',
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            })}</span>
+                          }
+                        } catch (e) {
+                          console.error('Error parsing date:', updateTime, e)
+                          return 'Ошибка даты'
                         }
                       })()}
                     </div>
                   </div>
                 </div>
-              ))}
+              )})}
             </div>
           </CardContent>
         </Card>
