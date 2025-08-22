@@ -351,33 +351,7 @@ export default function EmployeeDashboard() {
               >
                 📊 История
               </Button>
-              <Button
-                onClick={async () => {
-                  console.log('🔄 Manual sync triggered...')
-                  try {
-                    const res = await fetch('/api/sync-all', {
-                      method: 'GET',
-                      headers: { 'Content-Type': 'application/json' }
-                    })
-                    const data = await res.json()
-                    console.log('✅ Manual sync result:', data)
-                    if (data.stats?.transactionsCreated > 0) {
-                      alert(`Синхронизация завершена! Добавлено ${data.stats.transactionsCreated} новых транзакций.`)
-                      setTimeout(() => loadData(true), 2000)
-                    } else {
-                      alert('Нет новых транзакций для синхронизации.')
-                    }
-                  } catch (err) {
-                    console.error('❌ Manual sync error:', err)
-                    alert('Ошибка синхронизации!')
-                  }
-                }}
-                variant="outline"
-                className="text-purple-400 border-purple-400 hover:bg-purple-900/20"
-              >
-                🔄 Синхр.
-              </Button>
-              
+
               <Button
                 onClick={logout}
                 variant="outline"
