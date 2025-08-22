@@ -314,7 +314,7 @@ export async function GET() {
           transactionCount: allTransactions?.length || 0, // Общее количество транзакций от ВСЕХ
           casinoCount: sortedCasinos.length
         },
-        leaderboard: employeeStats,
+        leaderboard: employeeStats.sort((a, b) => a.rank - b.rank),
         casinoStats: sortedCasinos,
         recentUpdates: recentUpdates.map(t => ({
           id: t.id,
