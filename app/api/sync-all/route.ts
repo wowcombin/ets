@@ -426,8 +426,7 @@ export async function GET() {
                 withdrawal_usd: withdrawalUsd,
                 card_number: cardNumber,
                 gross_profit_usd: grossProfit,
-                net_profit_usd: grossProfit,
-                created_at: new Date().toISOString()
+                net_profit_usd: grossProfit
               })
               
               // Добавляем в Set чтобы не добавить дубликат в этой же сессии

@@ -82,7 +82,8 @@ interface EmployeeData {
     has_withdrawal: boolean
     card_number: string
     created_at: string
-    display_time: string
+    display_time?: string
+    sync_timestamp?: string
     is_recent: boolean
     update_type: 'complete' | 'deposit' | 'withdrawal'
   }>
@@ -750,12 +751,6 @@ export default function EmployeeDashboard() {
                     <div className="text-xs text-gray-500">
                       {(() => {
                         const updateTime = update.created_at || update.display_time || update.sync_timestamp
-                        console.log('Update time data:', { 
-                          created_at: update.created_at, 
-                          display_time: update.display_time,
-                          sync_timestamp: update.sync_timestamp,
-                          updateTime 
-                        })
                         
                         if (!updateTime) return 'Неизвестно'
                         
