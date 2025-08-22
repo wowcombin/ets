@@ -57,6 +57,14 @@ export default function Home() {
           >
             Первый вход / Создать пароль
           </Button>
+          <Button 
+            onClick={() => router.push('/sign-nda')}
+            size="lg" 
+            variant="outline"
+            className="w-full border-green-600 text-green-300 hover:bg-green-800"
+          >
+            📝 Підписати NDA
+          </Button>
           <div className="mt-8 p-4 bg-gray-800 border border-gray-700 rounded-lg">
             <p className="text-sm text-gray-400">
               📊 Отслеживание транзакций • 💰 Расчет зарплат • 🏆 Таблица лидеров
