@@ -156,16 +156,8 @@ export default function SignNDAPage() {
             </p>
             <div className="space-y-3">
               <Button 
-                onClick={() => window.open(documentUrl, '_blank')}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Переглянути Документ
-              </Button>
-              <Button 
                 onClick={() => window.location.href = '/'}
-                variant="outline"
-                className="w-full border-gray-600 text-gray-300 hover:bg-gray-700"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
               >
                 На Головну
               </Button>
