@@ -76,9 +76,12 @@ export async function POST(request: NextRequest) {
     const year = now.getFullYear()
     const signatureDate = `${day} ${month} ${year}`
 
-    // 1. Создаем Google документ с полным текстом NDA
+    // 1. Пытаемся создать Google документ с полным текстом NDA
     let documentUrl = ''
+    let documentCreated = false
+    
     try {
+      console.log('Attempting to create Google Doc...')
       const docTitle = `NDA_${fullName}_${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`
       
       const createDocResponse = await docs.documents.create({
@@ -88,6 +91,7 @@ export async function POST(request: NextRequest) {
       })
 
       const documentId = createDocResponse.data.documentId!
+      console.log('Google Doc created successfully:', documentId)
 
       // Полный текст NDA
       const ndaContent = `ДОГОВІР ПРО НЕРОЗГОЛОШЕННЯ КОНФІДЕНЦІЙНОЇ ІНФОРМАЦІЇ
@@ -203,8 +207,12 @@ d) підлягає обов'язковому розкриттю на вимог
       }
 
       documentUrl = `https://docs.google.com/document/d/${documentId}`
+      documentCreated = true
+      console.log('Document URL:', documentUrl)
+      
     } catch (docError: any) {
-      console.error('Error creating document:', docError)
+      console.error('Error creating Google Doc:', docError.message)
+      console.log('Continuing without document creation...')
       // Продолжаем без документа, если не получилось
     }
 
@@ -260,7 +268,11 @@ d) підлягає обов'язковому розкриттю на вимог
       success: true,
       message: 'NDA успішно підписано та збережено!',
       documentUrl: documentUrl || `https://docs.google.com/spreadsheets/d/${EXISTING_SPREADSHEET_ID}`,
-      note: documentUrl ? 'Повний договір створено та збережено в Google Документах.' : 'Дані збережено в таблиці. Повний договір буде надіслано окремо.'
+      note: documentCreated ? 
+        'Повний договір створено та збережено в Google Документах і папці NDA.' : 
+        'Дані збережено в таблиці Sheet1. Google документ не створено через обмеження прав.',
+      documentCreated,
+      sheetUrl: `https://docs.google.com/spreadsheets/d/${EXISTING_SPREADSHEET_ID}`
     })
 
   } catch (error: any) {
