@@ -136,9 +136,15 @@ export default function EmployeeDashboard() {
         if (result.data.stats) {
           setData(result.data)
           setLastUpdated(new Date())
-          console.log('Data updated successfully at', new Date().toLocaleTimeString())
+          console.log('✅ Data updated successfully at', new Date().toLocaleTimeString())
+          console.log('📊 Stats:', {
+            totalGross: result.data.stats.totalGross,
+            transactionCount: result.data.stats.transactionCount,
+            employeeCount: result.data.stats.employeeCount,
+            recentUpdatesCount: result.data.recentUpdates?.length || 0
+          })
         } else {
-          console.log('Invalid data received, keeping previous data')
+          console.log('⚠️ Invalid data received, keeping previous data')
         }
       } else {
         if (response.status === 401) {
@@ -149,6 +155,7 @@ export default function EmployeeDashboard() {
       }
     } catch (error) {
       console.error('Load error:', error)
+      setError('Ошибка загрузки данных')
     } finally {
       if (showLoader) {
         setLoading(false)
@@ -162,7 +169,8 @@ export default function EmployeeDashboard() {
   }
 
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null
+    let refreshInterval: NodeJS.Timeout | null = null
+    let syncInterval: NodeJS.Timeout | null = null
     
     // Сначала проверяем авторизацию
     const checkAuth = async () => {
@@ -176,25 +184,41 @@ export default function EmployeeDashboard() {
         }
         
         // Если авторизован, загружаем данные
-        loadData(true)
+        await loadData(true)
         
-        // Автообновление каждые 2 минуты + принудительная синхронизация каждые 5 минут
-        interval = setInterval(async () => {
-          console.log('Auto-refreshing data...', new Date().toLocaleTimeString())
-          
-                  // Автосинхронизация теперь безопасна - дубликаты предотвращаются в sync-all
-        console.log('Running auto-sync...')
-        fetch('/api/force-sync')
-          .then(res => res.json())
-          .then(data => {
-            console.log('Auto-sync completed:', data)
-            // Обновляем данные после синхронизации
-            setTimeout(() => loadData(), 5000) // Даем время на обработку
-          })
-          .catch(err => console.error('Auto-sync error:', err))
-          
-          loadData(false) // false = не показывать лоадер
+        // Автообновление каждые 2 минуты
+        refreshInterval = setInterval(async () => {
+          console.log('🔄 Auto-refreshing data...', new Date().toLocaleTimeString())
+          await loadData(false) // false = не показывать лоадер
         }, 120000) // 120000 мс = 2 минуты
+        
+        // Запускаем обновление сразу через 30 секунд для проверки
+        setTimeout(() => {
+          console.log('🔄 First auto-refresh after 30s...')
+          loadData(false)
+        }, 30000)
+        
+        // Автосинхронизация каждые 5 минут
+        syncInterval = setInterval(async () => {
+          console.log('🔄 Running auto-sync...', new Date().toLocaleTimeString())
+          try {
+            const res = await fetch('/api/force-sync', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              }
+            })
+            const data = await res.json()
+            console.log('✅ Auto-sync completed:', data)
+            // Обновляем данные после синхронизации
+            setTimeout(() => {
+              console.log('🔄 Loading data after sync...')
+              loadData(false)
+            }, 5000) // Даем время на обработку
+          } catch (err) {
+            console.error('❌ Auto-sync error:', err)
+          }
+        }, 300000) // 300000 мс = 5 минут
         
       } catch (error) {
         console.error('Auth check error:', error)
@@ -205,8 +229,11 @@ export default function EmployeeDashboard() {
     checkAuth()
     
     return () => {
-      if (interval) {
-        clearInterval(interval)
+      if (refreshInterval) {
+        clearInterval(refreshInterval)
+      }
+      if (syncInterval) {
+        clearInterval(syncInterval)
       }
     }
   }, [router])
