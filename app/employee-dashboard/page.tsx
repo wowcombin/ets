@@ -181,8 +181,16 @@ export default function EmployeeDashboard() {
         interval = setInterval(async () => {
           console.log('Auto-refreshing data...', new Date().toLocaleTimeString())
           
-          // ВРЕМЕННО ОТКЛЮЧЕНА автосинхронизация для предотвращения дубликатов
-          console.log('Auto-sync temporarily disabled to prevent duplicates')
+                  // Автосинхронизация теперь безопасна - дубликаты предотвращаются в sync-all
+        console.log('Running auto-sync...')
+        fetch('/api/force-sync')
+          .then(res => res.json())
+          .then(data => {
+            console.log('Auto-sync completed:', data)
+            // Обновляем данные после синхронизации
+            setTimeout(() => loadData(), 5000) // Даем время на обработку
+          })
+          .catch(err => console.error('Auto-sync error:', err))
           
           loadData(false) // false = не показывать лоадер
         }, 120000) // 120000 мс = 2 минуты
