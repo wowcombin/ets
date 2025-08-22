@@ -41,7 +41,8 @@ const publicPaths = [
   '/api/track-sheet-changes',
   '/api/debug-transactions',
   '/api/test-sync',
-  '/api/check-latest-transactions'
+  '/api/check-latest-transactions',
+  '/api/clean-empty-transactions'
 ]
 
 export function middleware(request: NextRequest) {

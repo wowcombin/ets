@@ -336,6 +336,12 @@ export async function GET() {
                 const withdrawalUsd = Math.round(withdrawalGbp * GBP_TO_USD_RATE * 100) / 100
                 const grossProfit = withdrawalUsd - depositUsd
                 
+                // Пропускаем строки где и депозит и вывод равны нулю
+                if (depositUsd === 0 && withdrawalUsd === 0) {
+                  console.log(`Skipping empty transaction: ${cleanUsername} - ${String(row[0]).trim()}`)
+                  continue
+                }
+                
                 console.log(`Processing: ${cleanUsername} - ${String(row[0]).trim()} - Deposit: ${depositUsd}, Withdrawal: ${withdrawalUsd}, Profit: ${grossProfit}`)
                 
                 // Создаем уникальный ключ для проверки дубликата
@@ -410,6 +416,12 @@ export async function GET() {
             const depositUsd = Math.round(depositGbp * GBP_TO_USD_RATE * 100) / 100
             const withdrawalUsd = Math.round(withdrawalGbp * GBP_TO_USD_RATE * 100) / 100
             const grossProfit = withdrawalUsd - depositUsd
+            
+            // Пропускаем строки где и депозит и вывод равны нулю
+            if (depositUsd === 0 && withdrawalUsd === 0) {
+              console.log(`Skipping empty test transaction: ${String(row[0]).trim()}`)
+              continue
+            }
             
             // Создаем уникальный ключ для проверки дубликата
             const transactionKey = `${sobrofficeId}_${monthCode}_${String(row[0]).trim()}_${depositUsd}_${withdrawalUsd}_${cardNumber}`
