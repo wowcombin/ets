@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { Copy, Download, RefreshCw } from 'lucide-react'
+import { Copy, Download, RefreshCw, ArrowLeft } from 'lucide-react'
 
 // Британские имена и фамилии
 const firstNames = [
@@ -40,6 +41,7 @@ export default function DataGeneratorPage() {
   const [includePasswords, setIncludePasswords] = useState(true)
   const [includePhones, setIncludePhones] = useState(true)
   const [copied, setCopied] = useState(false)
+  const router = useRouter()
 
   // Генерация username
   const generateUsername = (): string => {
@@ -154,42 +156,52 @@ export default function DataGeneratorPage() {
   }
 
   return (
-    <div className="container mx-auto p-4 max-w-6xl">
-      <h1 className="text-3xl font-bold mb-6">🎲 Генератор данных для UK аккаунтов</h1>
-      
-      <Card className="p-6 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Количество записей
-            </label>
-            <input
-              type="number"
-              min="1"
-              max="100"
-              value={count}
-              onChange={(e) => setCount(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
-              className="w-full px-3 py-2 border rounded-lg"
-            />
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900">
+      <div className="container mx-auto p-4 max-w-6xl">
+        <Button
+          onClick={() => router.back()}
+          variant="outline"
+          className="mb-4 text-white border-white hover:bg-white/10"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Назад
+        </Button>
+        
+        <h1 className="text-4xl font-bold mb-6 text-white">🎲 Генератор данных для UK аккаунтов</h1>
+        
+        <Card className="bg-gray-800/50 border-gray-700 p-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium mb-2 text-gray-300">
+                Количество записей
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="100"
+                value={count}
+                onChange={(e) => setCount(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
           
           <div className="space-y-3">
-            <label className="flex items-center space-x-2">
+            <label className="flex items-center space-x-2 text-gray-300 cursor-pointer">
               <input
                 type="checkbox"
                 checked={includePasswords}
                 onChange={(e) => setIncludePasswords(e.target.checked)}
-                className="w-4 h-4"
+                className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
               />
               <span>Генерировать пароли</span>
             </label>
             
-            <label className="flex items-center space-x-2">
+            <label className="flex items-center space-x-2 text-gray-300 cursor-pointer">
               <input
                 type="checkbox"
                 checked={includePhones}
                 onChange={(e) => setIncludePhones(e.target.checked)}
-                className="w-4 h-4"
+                className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
               />
               <span>Генерировать телефоны</span>
             </label>
@@ -197,7 +209,7 @@ export default function DataGeneratorPage() {
         </div>
         
         <div className="mt-6 flex gap-4">
-          <Button onClick={generateData} className="flex items-center gap-2">
+          <Button onClick={generateData} className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2">
             <RefreshCw className="w-4 h-4" />
             Сгенерировать
           </Button>
@@ -205,15 +217,15 @@ export default function DataGeneratorPage() {
       </Card>
 
       {generatedData.length > 0 && (
-        <Card className="p-6">
+        <Card className="bg-gray-800/50 border-gray-700 p-6">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Сгенерированные данные</h2>
+            <h2 className="text-xl font-semibold text-white">Сгенерированные данные</h2>
             <div className="flex gap-2">
               <Button
                 onClick={copyToClipboard}
                 variant="outline"
                 size="sm"
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 text-blue-400 border-blue-400 hover:bg-blue-900/20"
               >
                 <Copy className="w-4 h-4" />
                 {copied ? 'Скопировано!' : 'Копировать для таблицы'}
@@ -222,7 +234,7 @@ export default function DataGeneratorPage() {
                 onClick={downloadCSV}
                 variant="outline"
                 size="sm"
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 text-green-400 border-green-400 hover:bg-green-900/20"
               >
                 <Download className="w-4 h-4" />
                 Скачать CSV
@@ -233,21 +245,21 @@ export default function DataGeneratorPage() {
           <div className="overflow-x-auto">
             <table className="w-full border-collapse">
               <thead>
-                <tr className="bg-gray-100 dark:bg-gray-800">
-                  <th className="border p-2 text-left">Username</th>
-                  {includePasswords && <th className="border p-2 text-left">Password</th>}
-                  {includePhones && <th className="border p-2 text-left">Phone Number</th>}
+                <tr className="bg-gray-900/50">
+                  <th className="border border-gray-700 p-2 text-left text-gray-300">Username</th>
+                  {includePasswords && <th className="border border-gray-700 p-2 text-left text-gray-300">Password</th>}
+                  {includePhones && <th className="border border-gray-700 p-2 text-left text-gray-300">Phone Number</th>}
                 </tr>
               </thead>
               <tbody>
                 {generatedData.map((item, idx) => (
-                  <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-900">
-                    <td className="border p-2 font-mono text-sm">{item.username}</td>
+                  <tr key={idx} className="hover:bg-gray-700/30 transition-colors">
+                    <td className="border border-gray-700 p-2 font-mono text-sm text-white">{item.username}</td>
                     {includePasswords && (
-                      <td className="border p-2 font-mono text-sm">{item.password}</td>
+                      <td className="border border-gray-700 p-2 font-mono text-sm text-white">{item.password}</td>
                     )}
                     {includePhones && (
-                      <td className="border p-2 font-mono text-sm">{item.phone}</td>
+                      <td className="border border-gray-700 p-2 font-mono text-sm text-white">{item.phone}</td>
                     )}
                   </tr>
                 ))}
@@ -255,14 +267,15 @@ export default function DataGeneratorPage() {
             </table>
           </div>
           
-          <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-            <p className="text-sm text-blue-800 dark:text-blue-200">
+          <div className="mt-4 p-4 bg-blue-900/20 rounded-lg border border-blue-800/30">
+            <p className="text-sm text-blue-300">
               💡 Совет: Нажмите "Копировать для таблицы" и вставьте данные прямо в Google Sheets. 
               Данные автоматически распределятся по колонкам!
             </p>
           </div>
         </Card>
       )}
+      </div>
     </div>
   )
 }
