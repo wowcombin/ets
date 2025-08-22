@@ -39,7 +39,9 @@ const publicPaths = [
   '/api/upgrade-transactions-table',
   '/api/live-updates',
   '/api/track-sheet-changes',
-  '/api/debug-transactions'
+  '/api/debug-transactions',
+  '/api/test-sync',
+  '/api/check-latest-transactions'
 ]
 
 export function middleware(request: NextRequest) {

@@ -1,42 +1,34 @@
 import { NextResponse } from 'next/server'
-import { google } from 'googleapis'
+
+export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
-    const auth = new google.auth.GoogleAuth({
-      credentials: {
-        client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-        private_key: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-      },
-      scopes: [
-        'https://www.googleapis.com/auth/drive.readonly',
-        'https://www.googleapis.com/auth/spreadsheets.readonly',
-      ],
-    })
-
-    const drive = google.drive({ version: 'v3', auth })
+    console.log('🔍 Testing sync-all...')
     
-    // Получаем ВСЕ папки
-    const response = await drive.files.list({
-      q: `'1FEtrBtiv5ZpxV4C9paFzKf8aQuNdwRdu' in parents and mimeType='application/vnd.google-apps.folder'`,
-      fields: 'files(id, name)',
-      pageSize: 1000,
+    // Вызываем sync-all напрямую
+    const response = await fetch(`${process.env.NEXTAUTH_URL || 'https://etsmo.vercel.app'}/api/sync-all`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
     })
-
-    const folders = response.data.files || []
-    const employeeFolders = folders.filter(f => f.name?.includes('@'))
+    
+    const data = await response.json()
     
     return NextResponse.json({
       success: true,
-      totalFolders: folders.length,
-      employeeFolders: employeeFolders.length,
-      folders: employeeFolders.map(f => f.name),
-      allFolders: folders.map(f => f.name)
+      timestamp: new Date().toISOString(),
+      syncResult: data,
+      stats: data.stats || {},
+      message: data.message || 'No message'
     })
+    
   } catch (error: any) {
+    console.error('Test sync error:', error)
     return NextResponse.json({
       success: false,
-      error: error.message
-    })
+      error: error.message || 'Test sync failed'
+    }, { status: 500 })
   }
 }

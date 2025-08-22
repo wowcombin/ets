@@ -5,10 +5,16 @@ export const maxDuration = 60
 
 export async function POST() {
   try {
-    console.log('Force sync requested at', new Date().toISOString())
+    console.log('🔄 Force sync requested at', new Date().toISOString())
     
     // Вызываем полную синхронизацию
-    const syncResponse = await fetch(`${process.env.NEXTAUTH_URL || 'https://etsmo.vercel.app'}/api/sync-all`, {
+    const baseUrl = process.env.VERCEL_URL 
+      ? `https://${process.env.VERCEL_URL}` 
+      : process.env.NEXTAUTH_URL || 'https://etsmo.vercel.app'
+    
+    console.log(`📡 Calling sync-all at: ${baseUrl}/api/sync-all`)
+    
+    const syncResponse = await fetch(`${baseUrl}/api/sync-all`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json'
@@ -16,18 +22,23 @@ export async function POST() {
     })
     
     if (!syncResponse.ok) {
+      const errorText = await syncResponse.text()
+      console.error('❌ Sync failed:', syncResponse.status, errorText)
       throw new Error(`Sync failed: ${syncResponse.statusText}`)
     }
     
     const syncResult = await syncResponse.json()
+    console.log('✅ Sync result:', syncResult)
     
     return NextResponse.json({
       success: true,
       message: 'Force sync completed',
+      timestamp: new Date().toISOString(),
       syncResult: {
         transactionsCreated: syncResult.stats?.transactionsCreated || 0,
         totalGross: syncResult.stats?.totalGross || 0,
-        message: syncResult.message
+        message: syncResult.message,
+        details: syncResult.stats
       }
     })
     
