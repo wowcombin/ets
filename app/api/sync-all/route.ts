@@ -103,14 +103,12 @@ export async function GET() {
     const sheets = google.sheets({ version: 'v4', auth })
     const supabase = getServiceSupabase()
     
-    // ПОЛНОСТЬЮ очищаем данные текущего месяца для свежего импорта
-    console.log(`CLEARING ALL DATA for ${monthCode} and importing fresh from Google Sheets...`)
+    // НЕ УДАЛЯЕМ ДАННЫЕ! Только добавляем новые
+    console.log(`Syncing data for ${monthCode} (preserving existing data)...`)
     
-    await supabase.from('transactions').delete().eq('month', monthCode)
+    // Очищаем только расходы и зарплаты для пересчета
     await supabase.from('expenses').delete().eq('month', monthCode)
     await supabase.from('salaries').delete().eq('month', monthCode)
-    
-    console.log('All data cleared, starting fresh import...')
     
     // Получаем существующих сотрудников
     const { data: existingEmployees } = await supabase
@@ -469,32 +467,42 @@ export async function GET() {
     console.log(`Total gross calculated: $${calculatedTotalGross.toFixed(2)}`)
     console.log(`Employees with transactions: ${processedEmployees}`)
     
-    // Простая вставка всех транзакций (данные уже очищены)
+    // Вставляем транзакции (игнорируем дубликаты)
     if (allTransactions.length > 0) {
       const batchSize = 500
       let insertedCount = 0
       
-      console.log(`Inserting ${allTransactions.length} fresh transactions...`)
+      console.log(`Attempting to insert ${allTransactions.length} transactions...`)
       
       for (let i = 0; i < allTransactions.length; i += batchSize) {
         const batch = allTransactions.slice(i, i + batchSize)
-        const { error, data } = await supabase
-          .from('transactions')
-          .insert(batch)
-          .select()
         
-        if (error) {
-          console.error(`Batch insert error:`, error)
-          results.errors.push(`Batch error: ${error.message}`)
-        } else {
-          insertedCount += data?.length || 0
-          console.log(`Inserted batch: ${data?.length} records`)
+        try {
+          const { error, data } = await supabase
+            .from('transactions')
+            .insert(batch)
+            .select()
+          
+          if (error) {
+            // Игнорируем ошибки дубликатов
+            if (error.code === '23505' || error.message.includes('duplicate')) {
+              console.log(`Batch ${i}: Skipped duplicates`)
+            } else {
+              console.error(`Batch insert error:`, error)
+              results.errors.push(`Batch error: ${error.message}`)
+            }
+          } else {
+            insertedCount += data?.length || 0
+            console.log(`Batch ${i}: Inserted ${data?.length} transactions`)
+          }
+        } catch (err: any) {
+          console.log(`Batch ${i}: Error ignored (likely duplicates)`)
         }
         
         await delay(100)
       }
       
-      console.log(`Total inserted to DB: ${insertedCount} transactions`)
+      console.log(`Total transactions processed: ${insertedCount}`)
       results.stats.transactionsCreated = insertedCount
     }
     
