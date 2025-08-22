@@ -161,15 +161,40 @@ export default function EmployeeDashboard() {
   }
 
   useEffect(() => {
-    // Первая загрузка с показом лоадера
-    loadData(true)
+    let interval: NodeJS.Timeout | null = null
     
-    // Автообновление каждые 5 минут
-    const interval = setInterval(() => {
-      loadData(false) // false = не показывать лоадер
-    }, 300000) // 300000 мс = 5 минут
+    // Сначала проверяем авторизацию
+    const checkAuth = async () => {
+      try {
+        const response = await fetch('/api/auth/me')
+        const result = await response.json()
+        
+        if (!result.success) {
+          router.push('/login')
+          return
+        }
+        
+        // Если авторизован, загружаем данные
+        loadData(true)
+        
+        // Автообновление каждые 5 минут
+        interval = setInterval(() => {
+          loadData(false) // false = не показывать лоадер
+        }, 300000) // 300000 мс = 5 минут
+        
+      } catch (error) {
+        console.error('Auth check error:', error)
+        router.push('/login')
+      }
+    }
     
-    return () => clearInterval(interval)
+    checkAuth()
+    
+    return () => {
+      if (interval) {
+        clearInterval(interval)
+      }
+    }
   }, [router])
 
   if (loading && !data) {
