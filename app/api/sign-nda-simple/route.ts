@@ -7,6 +7,8 @@ export const maxDuration = 300
 
 // Используем существующую таблицу для логирования (та же что используется в основной системе)
 const EXISTING_SPREADSHEET_ID = '1AfI-HcjO1ZBMgHiLGBy3ckgiB8Cak2ahsmllgMTCymU'
+// ID папки для сохранения NDA документов
+const NDA_FOLDER_ID = '1yEj7s7qYvkI3Bg0fL7AXVNYQ7X1iwwAp'
 
 // Украинские названия месяцев в родительном падеже
 const UKRAINIAN_MONTHS_GENITIVE = [
@@ -17,13 +19,21 @@ const UKRAINIAN_MONTHS_GENITIVE = [
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.json()
-    const { fullName, passport, issuedBy, issuedDate, address, email, signatureBase64 } = formData
+    const { fullName, passport, issuedBy, issuedDate, address, email, signatureBase64, agreed } = formData
 
     // Проверка обязательных полей
     if (!fullName || !passport || !issuedBy || !issuedDate || !address || !email) {
       return NextResponse.json({
         success: false,
         error: 'Помилка: Усі поля є обов\'язковими. Будь ласка, заповніть усі поля.'
+      }, { status: 400 })
+    }
+
+    // Проверка согласия с условиями
+    if (!agreed) {
+      return NextResponse.json({
+        success: false,
+        error: 'Помилка: Необхідно погодитися з умовами договору.'
       }, { status: 400 })
     }
 
@@ -49,10 +59,14 @@ export async function POST(request: NextRequest) {
         private_key: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/g, '\n'),
       },
       scopes: [
+        'https://www.googleapis.com/auth/drive',
+        'https://www.googleapis.com/auth/documents',
         'https://www.googleapis.com/auth/spreadsheets',
       ],
     })
 
+    const drive = google.drive({ version: 'v3', auth })
+    const docs = google.docs({ version: 'v1', auth })
     const sheets = google.sheets({ version: 'v4', auth })
 
     // Получаем текущую дату для подписи
@@ -62,68 +76,143 @@ export async function POST(request: NextRequest) {
     const year = now.getFullYear()
     const signatureDate = `${day} ${month} ${year}`
 
-    // Проверяем существует ли лист NDA_Signatures, если нет - создаем
-    let sheetId = 0
+    // 1. Создаем Google документ с полным текстом NDA
+    let documentUrl = ''
     try {
-      const spreadsheetInfo = await sheets.spreadsheets.get({
-        spreadsheetId: EXISTING_SPREADSHEET_ID
+      const docTitle = `NDA_${fullName}_${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`
+      
+      const createDocResponse = await docs.documents.create({
+        requestBody: {
+          title: docTitle
+        }
       })
-      
-      const ndaSheet = spreadsheetInfo.data.sheets?.find(sheet => 
-        sheet.properties?.title === 'NDA_Signatures'
-      )
-      
-      if (!ndaSheet) {
-        // Создаем новый лист для NDA
-        const addSheetResponse = await sheets.spreadsheets.batchUpdate({
-          spreadsheetId: EXISTING_SPREADSHEET_ID,
-          requestBody: {
-            requests: [{
-              addSheet: {
-                properties: {
-                  title: 'NDA_Signatures'
-                }
+
+      const documentId = createDocResponse.data.documentId!
+
+      // Полный текст NDA
+      const ndaContent = `ДОГОВІР ПРО НЕРОЗГОЛОШЕННЯ КОНФІДЕНЦІЙНОЇ ІНФОРМАЦІЇ
+
+м. Київ ${signatureDate}
+
+Компанія «Xbsidian Co.», надалі – "Роботодавець", представлена директором Андрієм Головачем, який діє на підставі Статуту, зареєстрована за адресою: м. Київ, Просп. Європейського Союзу, 64.
+
+Працівник ${fullName}, паспортні дані ${passport}, надалі іменований "Співробітник", який проживає за адресою: ${address}.
+
+Роботодавець і Працівник надалі разом – «Сторони», окремо – «Сторона».
+
+Сторони керуються статтями 9, 21, 147-149 Кодексу законів про працю України, статтями 36-37 Господарського кодексу України, статтями 627-628, 906 Цивільного кодексу України, Законом України «Про комерційну таємницю» та Директивою (ЄС) 2016/943.
+
+1. ПРЕДМЕТ ДОГОВОРУ
+
+1.1. Сторони погодили, що будь-яка інформація (незалежно від форми, носія чи способу отримання), до якої Працівник має або матиме доступ, отримує, створює чи дізнається під час виконання трудових обов'язків, є конфіденційною та становить «Конфіденційну інформацію» Роботодавця.
+
+1.2. У межах цього Договору ділові відносини виникли з приводу: виконання завдань з обробки даних і управління обліковими записами в онлайн-системах Роботодавця.
+
+1.3. До Конфіденційної інформації належить, зокрема, але не виключно:
+1.3.1. фінансова, бухгалтерська, клієнтська, постачальницька та будь-яка бізнес-аналітика;
+1.3.2. вихідні коди, бази даних, ТЗ, технічна або проєктна документація;
+1.3.3. маркетингові, стратегічні, інвестиційні плани, ноу-хау, комерційні секрети;
+1.3.4. інші відомості, що мають комерційну цінність для Роботодавця.
+
+2. РОЗГОЛОШЕННЯ КОНФІДЕНЦІЙНОЇ ІНФОРМАЦІЇ
+
+2.1. Під Розголошенням розуміється будь-яка з наведених дій (далі — «Розголошення»):
+2.1.1. умисне, недбале або необережне повідомлення Конфіденційної інформації третім особам (крім уповноважених довірених осіб Роботодавця);
+2.1.2. копіювання, публікація чи передача інформації будь-яким способом без письмового дозволу Роботодавця;
+2.1.3. викрадення або втрата носіїв Конфіденційної інформації у будь-якій формі.
+
+2.2. Інформація не вважається Конфіденційною, якщо Працівник доведе, що вона:
+a) стала загальнодоступною без порушення цього Договору;
+b) була відома Працівнику до початку трудових відносин;
+c) самостійно створена без використання даних Роботодавця;
+d) підлягає обов'язковому розкриттю на вимогу закону — за умови письмового повідомлення Роботодавця протягом 3 роб. днів з моменту одержання вимоги.
+
+3. СТРОК ДІЇ ДОГОВОРУ
+
+3.1. Цей Договір є безстроковим щодо дії трудових відносин та зберігає силу 11 (одинадцять) років після їх припинення, якщо Роботодавець письмово не зніме гриф конфіденційності раніше.
+
+4. ПРАВА ТА ОБОВ'ЯЗКИ СТОРІН
+
+4.1. Працівник зобов'язується:
+4.1.1. захищати та не розголошувати Конфіденційну інформацію повністю або частково;
+4.1.2. не надавати копій, не публікувати та не передавати її без письмового дозволу Роботодавця;
+4.1.3. використовувати інформацію виключно в межах службових обов'язків;
+4.1.4. негайно повідомляти Роботодавця про факт або загрозу Розголошення.
+
+4.2. Роботодавець зобов'язується:
+4.2.1. повідомляти Працівника про зміни режиму конфіденційності у строк, визначений внутрішніми політиками Роботодавця;
+4.2.2. не розголошувати персональні дані Працівника без його згоди, крім випадків, передбачених законодавством.
+
+4.3. Сторони зобов'язуються не використовувати Конфіденційну інформацію з метою конкурувати між собою.
+
+5. ВІДПОВІДАЛЬНІСТЬ СТОРІН ЗА ДОГОВОРОМ
+
+5.1. Сторони погодили перелік заходів відповідальності, які можуть бути застосовані до порушника, а саме:
+5.1.1. відшкодування прямих збитків, документально підтверджених;
+5.1.2. відшкодування упущеної вигоди, пов'язаної з Розголошенням.
+
+5.2. Роботодавець має право застосувати будь-який із зазначених заходів відповідальності.
+
+5.3. Сторона, яка порушила умови договору, має сплатити штраф у розмірі 50 000 € (п'ятдесят тисяч) євро.
+
+6. ЗАКЛЮЧНІ ПОЛОЖЕННЯ
+
+6.1. Цей Договір набирає юридичної сили з моменту підписання.
+6.2. Сторони визнають електронні підписи рівнозначними власноручним.
+6.3. Цей Договір складений у двох оригінальних примірниках для кожної зі Сторін.
+
+РЕКВІЗИТИ СТОРІН
+
+Сторона – Роботодавець                              Сторона – Працівник
+Андрій Головач                                       ${fullName}
+Адреса: м. Київ, вул. Сергія                       Адреса: ${address}
+Данченка 24                                         Паспорт: ${passport}
+Паспорт: FE655997                                   Виданий: ${issuedBy}
+                                                    Дата видачі: ${issuedDate}
+
+Підпис: ________________________                    Підпис: ________________________
+
+Документ підписано електронно ${signatureDate}
+`
+
+      // Вставляем содержимое в документ
+      await docs.documents.batchUpdate({
+        documentId,
+        requestBody: {
+          requests: [
+            {
+              insertText: {
+                location: { index: 1 },
+                text: ndaContent
               }
-            }]
-          }
+            }
+          ]
+        }
+      })
+
+      // Перемещаем документ в папку NDA
+      try {
+        await drive.files.update({
+          fileId: documentId,
+          addParents: NDA_FOLDER_ID,
+          removeParents: 'root'
         })
-        sheetId = addSheetResponse.data.replies?.[0]?.addSheet?.properties?.sheetId || 0
-        
-        // Добавляем заголовки
-        await sheets.spreadsheets.values.update({
-          spreadsheetId: EXISTING_SPREADSHEET_ID,
-          range: 'NDA_Signatures!A1:I1',
-          valueInputOption: 'RAW',
-          requestBody: {
-            values: [[
-              'ПІБ',
-              'Паспорт', 
-              'Ким виданий',
-              'Дата видачі',
-              'Адреса',
-              'Email',
-              'Дата підписання',
-              'Час створення',
-              'Статус'
-            ]]
-          }
-        })
-      } else {
-        sheetId = ndaSheet.properties?.sheetId || 0
+        console.log('Document moved to NDA folder successfully')
+      } catch (moveError: any) {
+        console.warn('Could not move to NDA folder, document stays in root:', moveError.message)
       }
-    } catch (error) {
-      console.error('Error working with spreadsheet:', error)
-      return NextResponse.json({
-        success: false,
-        error: 'Помилка доступу до Google Sheets. Перевірте права доступу.'
-      }, { status: 500 })
+
+      documentUrl = `https://docs.google.com/document/d/${documentId}`
+    } catch (docError: any) {
+      console.error('Error creating document:', docError)
+      // Продолжаем без документа, если не получилось
     }
 
-    // Добавляем запись о подписанном NDA в таблицу
+    // 2. Добавляем запись в Sheet1 существующей таблицы
     try {
       await sheets.spreadsheets.values.append({
         spreadsheetId: EXISTING_SPREADSHEET_ID,
-        range: 'NDA_Signatures!A:I',
+        range: 'Sheet1!A:H',
         valueInputOption: 'RAW',
         insertDataOption: 'INSERT_ROWS',
         requestBody: {
@@ -135,16 +224,15 @@ export async function POST(request: NextRequest) {
             address,
             email,
             signatureDate,
-            new Date().toISOString(),
-            'Підписано'
+            documentUrl || 'Документ не створено'
           ]]
         }
       })
     } catch (error) {
-      console.error('Error adding NDA record:', error)
+      console.error('Error adding NDA record to Sheet1:', error)
       return NextResponse.json({
         success: false,
-        error: 'Помилка при збереженні даних NDA.'
+        error: 'Помилка при збереженні даних NDA в таблицю.'
       }, { status: 500 })
     }
 
@@ -159,7 +247,7 @@ export async function POST(request: NextRequest) {
         address: address,
         email: email,
         signature_date: signatureDate,
-        document_url: `https://docs.google.com/spreadsheets/d/${EXISTING_SPREADSHEET_ID}#gid=${sheetId}`,
+        document_url: documentUrl || `https://docs.google.com/spreadsheets/d/${EXISTING_SPREADSHEET_ID}`,
         created_at: new Date().toISOString()
       }])
 
@@ -171,8 +259,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: 'NDA успішно підписано та збережено!',
-      documentUrl: `https://docs.google.com/spreadsheets/d/${EXISTING_SPREADSHEET_ID}#gid=${sheetId}`,
-      note: 'Ваші дані збережено в таблиці NDA_Signatures. Повний текст договору буде надіслано окремо.'
+      documentUrl: documentUrl || `https://docs.google.com/spreadsheets/d/${EXISTING_SPREADSHEET_ID}`,
+      note: documentUrl ? 'Повний договір створено та збережено в Google Документах.' : 'Дані збережено в таблиці. Повний договір буде надіслано окремо.'
     })
 
   } catch (error: any) {

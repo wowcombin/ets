@@ -25,6 +25,7 @@ interface FormData {
   address: string
   email: string
   signatureBase64?: string
+  agreed: boolean
 }
 
 export default function SignNDAPage() {
@@ -34,7 +35,8 @@ export default function SignNDAPage() {
     issuedBy: '',
     issuedDate: '',
     address: '',
-    email: ''
+    email: '',
+    agreed: false
   })
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -44,10 +46,12 @@ export default function SignNDAPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
+    const { name, value, type } = e.target
+    const checked = (e.target as HTMLInputElement).checked
+    
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: type === 'checkbox' ? checked : value
     }))
   }
 
@@ -330,6 +334,37 @@ export default function SignNDAPage() {
                   </div>
                 </div>
 
+                {/* Согласие с условиями */}
+                <div className="space-y-4">
+                  <div className="flex items-start space-x-3">
+                    <input
+                      type="checkbox"
+                      id="agreed"
+                      name="agreed"
+                      checked={formData.agreed}
+                      onChange={handleInputChange}
+                      className="mt-1 w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                    />
+                    <label htmlFor="agreed" className="text-sm text-gray-300">
+                      Я прочитав(ла) та погоджуюся з усіма умовами{' '}
+                      <strong className="text-blue-400">Договору про нерозголошення конфіденційної інформації</strong>.
+                      Розумію, що порушення умов договору тягне за собою штраф у розмірі 50,000 євро та інші санкції,
+                      передбачені законодавством України.
+                    </label>
+                  </div>
+                  
+                  <div className="bg-amber-900/30 border border-amber-700 rounded-lg p-3">
+                    <div className="flex items-center mb-2">
+                      <AlertCircle className="w-4 h-4 text-amber-400 mr-2" />
+                      <span className="text-sm font-medium text-amber-300">Важливо:</span>
+                    </div>
+                    <p className="text-xs text-amber-200">
+                      Електронний підпис має таку ж юридичну силу, що й власноручний підпис.
+                      Договір діє протягом всього періоду співпраці та 11 років після її завершення.
+                    </p>
+                  </div>
+                </div>
+
                 {error && (
                   <div className="flex items-center p-4 bg-red-900/50 border border-red-700 rounded-lg">
                     <AlertCircle className="w-5 h-5 text-red-400 mr-3" />
@@ -339,8 +374,8 @@ export default function SignNDAPage() {
 
                 <Button
                   type="submit"
-                  disabled={loading}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 text-lg font-semibold"
+                  disabled={loading || !formData.agreed}
+                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white py-3 text-lg font-semibold"
                 >
                   {loading ? 'Підписання...' : 'Підписати NDA'}
                 </Button>
@@ -358,39 +393,89 @@ export default function SignNDAPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="text-sm text-gray-300 space-y-3 max-h-96 overflow-y-auto">
-                <div className="text-center font-bold text-white">
+                <div className="text-center font-bold text-white mb-4">
                   ДОГОВІР ПРО НЕРОЗГОЛОШЕННЯ КОНФІДЕНЦІЙНОЇ ІНФОРМАЦІЇ
                 </div>
                 
-                <p>
-                  <strong>Компанія «Xbsidian Co.»</strong>, надалі – "Роботодавець", 
-                  представлена директором Андрієм Головачем.
-                </p>
-                
-                <p>
-                  <strong>Працівник {formData.fullName || '[ПІБ]'}</strong>, 
-                  паспортні дані {formData.passport || '[ПАСПОРТ]'}, 
-                  надалі іменований "Співробітник".
-                </p>
-
-                <div className="bg-gray-700/50 p-3 rounded">
-                  <h4 className="font-semibold text-blue-300 mb-2">Основні положення:</h4>
-                  <ul className="text-xs space-y-1">
-                    <li>• Захист конфіденційної інформації компанії</li>
-                    <li>• Заборона розголошення комерційних секретів</li>
-                    <li>• Строк дії: 11 років після припинення відносин</li>
-                    <li>• Штраф за порушення: 50,000 євро</li>
-                    <li>• Електронний підпис має юридичну силу</li>
-                  </ul>
-                </div>
-
-                <div className="bg-blue-900/30 p-3 rounded border border-blue-700">
-                  <h4 className="font-semibold text-blue-300 mb-2">Важливо:</h4>
-                  <p className="text-xs">
-                    Підписуючи цей договір, ви погоджуєтесь не розголошувати 
-                    конфіденційну інформацію компанії Xbsidian Co. протягом 
-                    всього періоду співпраці та 11 років після її завершення.
+                <div className="space-y-3 text-xs">
+                  <p>
+                    <strong>Компанія «Xbsidian Co.»</strong>, надалі – "Роботодавець", 
+                    представлена директором Андрієм Головачем, зареєстрована за адресою: 
+                    м. Київ, Просп. Європейського Союзу, 64.
                   </p>
+                  
+                  <p>
+                    <strong>Працівник {formData.fullName || '[ПІБ]'}</strong>, 
+                    паспортні дані {formData.passport || '[ПАСПОРТ]'}, 
+                    який проживає за адресою: {formData.address || '[АДРЕСА]'}.
+                  </p>
+
+                  <div className="bg-gray-700/50 p-3 rounded">
+                    <h4 className="font-semibold text-blue-300 mb-2">1. ПРЕДМЕТ ДОГОВОРУ</h4>
+                    <p className="mb-2">
+                      1.1. Будь-яка інформація, до якої Працівник має доступ під час виконання 
+                      трудових обов'язків, є конфіденційною.
+                    </p>
+                    <p>
+                      1.3. До конфіденційної інформації належить: фінансова, бухгалтерська, 
+                      клієнтська інформація, вихідні коди, бази даних, маркетингові плани, 
+                      комерційні секрети.
+                    </p>
+                  </div>
+
+                  <div className="bg-gray-700/50 p-3 rounded">
+                    <h4 className="font-semibold text-blue-300 mb-2">2. ЗАБОРОНИ</h4>
+                    <p>
+                      2.1. Заборонено розголошувати, копіювати, публікувати або передавати 
+                      конфіденційну інформацію третім особам без письмового дозволу.
+                    </p>
+                  </div>
+
+                  <div className="bg-gray-700/50 p-3 rounded">
+                    <h4 className="font-semibold text-blue-300 mb-2">3. СТРОК ДІЇ</h4>
+                    <p>
+                      3.1. Договір діє протягом всього періоду трудових відносин та 
+                      <strong className="text-yellow-300"> 11 років після їх припинення</strong>.
+                    </p>
+                  </div>
+
+                  <div className="bg-gray-700/50 p-3 rounded">
+                    <h4 className="font-semibold text-blue-300 mb-2">4. ОБОВ'ЯЗКИ</h4>
+                    <p className="mb-1">
+                      4.1. Працівник зобов'язується захищати та не розголошувати конфіденційну 
+                      інформацію, використовувати її виключно для службових потреб.
+                    </p>
+                  </div>
+
+                  <div className="bg-red-900/30 p-3 rounded border border-red-700">
+                    <h4 className="font-semibold text-red-300 mb-2">5. ВІДПОВІДАЛЬНІСТЬ</h4>
+                    <p className="mb-2">
+                      5.1. За порушення умов договору передбачено відшкодування збитків 
+                      та упущеної вигоди.
+                    </p>
+                    <p className="font-bold text-red-300">
+                      5.3. Штраф за порушення: <span className="text-yellow-300">50,000 євро</span>
+                    </p>
+                  </div>
+
+                  <div className="bg-blue-900/30 p-3 rounded border border-blue-700">
+                    <h4 className="font-semibold text-blue-300 mb-2">6. ЗАКЛЮЧНІ ПОЛОЖЕННЯ</h4>
+                    <p className="mb-1">
+                      6.1. Договір набирає юридичної сили з моменту підписання.
+                    </p>
+                    <p>
+                      6.2. <strong>Електронні підписи рівнозначні власноручним</strong>.
+                    </p>
+                  </div>
+
+                  <div className="bg-amber-900/30 p-3 rounded border border-amber-700">
+                    <h4 className="font-semibold text-amber-300 mb-2">⚠️ Увага!</h4>
+                    <p>
+                      Підписуючи цей договір, ви берете на себе серйозні зобов'язання щодо 
+                      нерозголошення конфіденційної інформації компанії Xbsidian Co. 
+                      Порушення може призвести до значних фінансових санкцій.
+                    </p>
+                  </div>
                 </div>
               </div>
             </CardContent>
