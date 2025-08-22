@@ -99,7 +99,7 @@ export default function AchievementBadges({ userStats }: AchievementBadgesProps)
       description: 'Занять 2 место в рейтинге',
       icon: <Medal className="w-5 h-5" />,
       color: 'bg-gray-500',
-      unlocked: userStats.rank === 2 && userStats.rank !== 1
+      unlocked: userStats.rank === 2
     },
     {
       id: 'month_leader',
