@@ -788,14 +788,20 @@ export default function EmployeeDashboard() {
                     </p>
                     <div className="text-xs text-gray-500">
                       {(() => {
+                        const updateTime = update.created_at || update.display_time
+                        if (!updateTime) return 'Неизвестно'
+                        
                         const now = new Date().getTime()
-                        const updateTime = new Date(update.display_time).getTime()
-                        const minutesAgo = Math.round((now - updateTime) / (1000 * 60))
+                        const time = new Date(updateTime).getTime()
+                        
+                        if (isNaN(time)) return 'Неизвестно'
+                        
+                        const minutesAgo = Math.round((now - time) / (1000 * 60))
                         
                         if (minutesAgo <= 10) {
                           return <span className="text-green-400 font-medium">{minutesAgo === 0 ? 'сейчас' : `${minutesAgo} мин назад`}</span>
                         } else {
-                          return <span>{new Date(update.display_time).toLocaleString('ru-RU', { 
+                          return <span>{new Date(updateTime).toLocaleString('ru-RU', { 
                             day: '2-digit',
                             month: '2-digit',
                             hour: '2-digit', 
