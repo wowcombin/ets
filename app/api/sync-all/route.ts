@@ -586,24 +586,43 @@ export async function GET() {
       console.log(`Cards error: ${e.message}`)
     }
     
-    // Проверяем финальные данные в БД
-    const { data: finalTransactions } = await supabase
-      .from('transactions')
-      .select('gross_profit_usd')
-      .eq('month', monthCode)
+    // Проверяем финальные данные в БД - получаем ВСЕ транзакции для правильного подсчета
+    console.log('Calculating final totals from ALL transactions in database...')
+    let allDbTransactions: any[] = []
+    let from = 0
+    const limit = 1000
+    let hasMore = true
     
-    const dbTotalGross = finalTransactions?.reduce((sum, t) => sum + (t.gross_profit_usd || 0), 0) || 0
+    while (hasMore) {
+      const { data: batch, error: batchError } = await supabase
+        .from('transactions')
+        .select('gross_profit_usd')
+        .eq('month', monthCode)
+        .range(from, from + limit - 1)
+      
+      if (batchError) {
+        console.error(`Error fetching final batch from ${from}:`, batchError)
+        break
+      }
+      
+      if (batch && batch.length > 0) {
+        allDbTransactions = [...allDbTransactions, ...batch]
+        from += limit
+        hasMore = batch.length === limit
+      } else {
+        hasMore = false
+      }
+    }
+    
+    const dbTotalGross = allDbTransactions.reduce((sum, t) => sum + (t.gross_profit_usd || 0), 0)
     
     console.log(`\n=== FINAL VERIFICATION ===`)
-    console.log(`Calculated gross: $${calculatedTotalGross.toFixed(2)}`)
-    console.log(`Database gross: $${dbTotalGross.toFixed(2)}`)
+    console.log(`New transactions from sheets: ${allTransactions.length}`)
+    console.log(`Calculated gross from sheets: $${calculatedTotalGross.toFixed(2)}`)
+    console.log(`Total transactions in DB: ${allDbTransactions.length}`)
+    console.log(`Total gross in DB: $${dbTotalGross.toFixed(2)}`)
     console.log(`Active employees: ${results.stats.activeEmployees}`)
     console.log(`Fired employees: ${results.stats.firedEmployees}`)
-    
-    const { count: finalTransCount } = await supabase
-      .from('transactions')
-      .select('*', { count: 'exact', head: true })
-      .eq('month', monthCode)
     
     const { count: finalEmpCount } = await supabase
       .from('employees')
@@ -638,7 +657,7 @@ export async function GET() {
       stats: {
         ...results.stats,
         timeElapsed: `${Date.now() - startTime}ms`,
-        transactionsInDb: finalTransCount || 0,
+        transactionsInDb: allDbTransactions.length,
         totalEmployeesInDb: finalEmpCount || 0
       },
       month: monthName,
