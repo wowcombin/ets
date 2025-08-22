@@ -103,12 +103,14 @@ export async function GET() {
     const sheets = google.sheets({ version: 'v4', auth })
     const supabase = getServiceSupabase()
     
-    // НЕ удаляем транзакции! Только обновляем/добавляем новые
-    console.log(`Updating data for ${monthCode} (not deleting existing)...`)
+    // ПОЛНОСТЬЮ очищаем данные текущего месяца для свежего импорта
+    console.log(`CLEARING ALL DATA for ${monthCode} and importing fresh from Google Sheets...`)
     
-    // Очищаем только расходы и зарплаты для пересчета
+    await supabase.from('transactions').delete().eq('month', monthCode)
     await supabase.from('expenses').delete().eq('month', monthCode)
     await supabase.from('salaries').delete().eq('month', monthCode)
+    
+    console.log('All data cleared, starting fresh import...')
     
     // Получаем существующих сотрудников
     const { data: existingEmployees } = await supabase
@@ -465,70 +467,32 @@ export async function GET() {
     console.log(`Total gross calculated: $${calculatedTotalGross.toFixed(2)}`)
     console.log(`Employees with transactions: ${processedEmployees}`)
     
-    // Обновляем/добавляем транзакции с новыми timestamp
+    // Простая вставка всех транзакций (данные уже очищены)
     if (allTransactions.length > 0) {
       const batchSize = 500
-      let processedCount = 0
       let insertedCount = 0
-      let updatedCount = 0
       
-      console.log(`Processing ${allTransactions.length} transactions from Google Sheets...`)
+      console.log(`Inserting ${allTransactions.length} fresh transactions...`)
       
       for (let i = 0; i < allTransactions.length; i += batchSize) {
         const batch = allTransactions.slice(i, i + batchSize)
+        const { error, data } = await supabase
+          .from('transactions')
+          .insert(batch)
+          .select()
         
-        // Для каждой транзакции проверяем существует ли она и обновляем timestamp
-        for (const transaction of batch) {
-          try {
-            // Ищем существующую транзакцию по ключевым полям
-            const { data: existing, error: findError } = await supabase
-              .from('transactions')
-              .select('id, sync_timestamp')
-              .eq('employee_id', transaction.employee_id)
-              .eq('month', transaction.month)
-              .eq('casino_name', transaction.casino_name)
-              .eq('deposit_usd', transaction.deposit_usd)
-              .eq('withdrawal_usd', transaction.withdrawal_usd)
-              .eq('card_number', transaction.card_number || '')
-              .single()
-            
-            if (existing) {
-              // Обновляем timestamp существующей записи
-              const { error: updateError } = await supabase
-                .from('transactions')
-                .update({ 
-                  sync_timestamp: new Date().toISOString(),
-                  last_updated: new Date().toISOString()
-                })
-                .eq('id', existing.id)
-              
-              if (!updateError) {
-                updatedCount++
-                console.log(`Updated transaction ${existing.id} timestamp`)
-              }
-            } else {
-              // Добавляем новую транзакцию
-              const { error: insertError, data: insertData } = await supabase
-                .from('transactions')
-                .insert([transaction])
-                .select()
-              
-              if (!insertError && insertData) {
-                insertedCount++
-                console.log(`Inserted new transaction for ${transaction.casino_name}`)
-              }
-            }
-            
-            processedCount++
-          } catch (err: any) {
-            console.log(`Error processing transaction: ${err.message}`)
-          }
+        if (error) {
+          console.error(`Batch insert error:`, error)
+          results.errors.push(`Batch error: ${error.message}`)
+        } else {
+          insertedCount += data?.length || 0
+          console.log(`Inserted batch: ${data?.length} records`)
         }
         
-        await delay(200)
+        await delay(100)
       }
       
-      console.log(`Transactions processed: ${processedCount}, New: ${insertedCount}, Updated: ${updatedCount}`)
+      console.log(`Total inserted to DB: ${insertedCount} transactions`)
       results.stats.transactionsCreated = insertedCount
     }
     
