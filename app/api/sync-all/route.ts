@@ -128,7 +128,8 @@ export async function GET() {
       if (batch && batch.length > 0) {
         batch.forEach(t => {
           // Создаем уникальный ключ для каждой транзакции
-          const key = `${t.employee_id}_${t.month}_${t.casino_name}_${t.deposit_usd}_${t.withdrawal_usd}_${t.card_number}`
+          // Не включаем card_number так как он может меняться
+          const key = `${t.employee_id}_${t.month}_${t.casino_name}_${t.deposit_usd}_${t.withdrawal_usd}`
           existingTransactions.add(key)
         })
         from += limit
@@ -344,8 +345,8 @@ export async function GET() {
                 
                 console.log(`Processing: ${cleanUsername} - ${String(row[0]).trim()} - Deposit: ${depositUsd}, Withdrawal: ${withdrawalUsd}, Profit: ${grossProfit}`)
                 
-                // Создаем уникальный ключ для проверки дубликата
-                const transactionKey = `${employeeId}_${monthCode}_${String(row[0]).trim()}_${depositUsd}_${withdrawalUsd}_${cardNumber}`
+                // Создаем уникальный ключ для проверки дубликата (без card_number)
+                const transactionKey = `${employeeId}_${monthCode}_${String(row[0]).trim()}_${depositUsd}_${withdrawalUsd}`
                 
                 // Добавляем только если это не дубликат
                 if (!existingTransactions.has(transactionKey)) {
@@ -423,8 +424,8 @@ export async function GET() {
               continue
             }
             
-            // Создаем уникальный ключ для проверки дубликата
-            const transactionKey = `${sobrofficeId}_${monthCode}_${String(row[0]).trim()}_${depositUsd}_${withdrawalUsd}_${cardNumber}`
+            // Создаем уникальный ключ для проверки дубликата (без card_number)
+            const transactionKey = `${sobrofficeId}_${monthCode}_${String(row[0]).trim()}_${depositUsd}_${withdrawalUsd}`
             
             // Добавляем только если это не дубликат
             if (!existingTransactions.has(transactionKey)) {
