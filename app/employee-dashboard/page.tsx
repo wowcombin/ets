@@ -285,6 +285,13 @@ export default function EmployeeDashboard() {
               >
                 🎲 Генератор
               </Button>
+              <Button
+                onClick={() => router.push('/earnings-history')}
+                variant="outline"
+                className="text-yellow-400 border-yellow-400 hover:bg-yellow-900/20"
+              >
+                📊 История
+              </Button>
               
               <Button
                 onClick={logout}
