@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase/client'
+import { performSync } from '../sync-all/route'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -28,23 +29,10 @@ export async function GET() {
     
     console.log('All transactions cleared, starting resync...')
     
-    // Запускаем полную синхронизацию
-    const baseUrl = process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : process.env.NEXTAUTH_URL || 'https://etsmo.vercel.app'
+    // Вызываем функцию синхронизации напрямую
+    const syncResponse = await performSync()
     
-    const syncResponse = await fetch(`${baseUrl}/api/sync-all`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    })
-    
-    if (!syncResponse.ok) {
-      const errorText = await syncResponse.text()
-      throw new Error(`Sync failed: ${errorText}`)
-    }
-    
+    // Извлекаем JSON данные из NextResponse
     const syncResult = await syncResponse.json()
     
     return NextResponse.json({

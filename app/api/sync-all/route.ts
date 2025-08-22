@@ -59,7 +59,7 @@ function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-export async function GET() {
+export async function performSync() {
   const startTime = Date.now()
   const results = {
     stats: {
@@ -729,4 +729,8 @@ export async function GET() {
       results
     }, { status: 500 })
   }
+}
+
+export async function GET() {
+  return performSync()
 }
