@@ -130,24 +130,24 @@ export default function EmployeeDashboard() {
       })
       const result = await response.json()
       
-      if (result.success) {
-        setData(prevData => ({
-          ...result.data,
-          // Сохраняем старые данные если новые пустые
-          stats: result.data.stats || prevData?.stats,
-          leaderboard: result.data.leaderboard?.length > 0 ? result.data.leaderboard : prevData?.leaderboard || [],
-          recentUpdates: result.data.recentUpdates?.length > 0 ? result.data.recentUpdates : prevData?.recentUpdates || []
-        }))
-        setLastUpdated(new Date())
+      if (result.success && result.data) {
+        // Обновляем данные только если они валидные
+        if (result.data.stats && result.data.leaderboard && result.data.leaderboard.length > 0) {
+          setData(result.data)
+          setLastUpdated(new Date())
+          console.log('Data updated successfully')
+        } else {
+          console.log('Invalid data received, keeping previous data')
+        }
       } else {
         if (response.status === 401) {
           router.push('/login')
           return
         }
-        setError(result.error || 'Ошибка загрузки данных')
+        console.error('API error:', result.error)
       }
     } catch (error) {
-      setError('Ошибка при загрузке данных')
+      console.error('Load error:', error)
     } finally {
       if (showLoader) {
         setLoading(false)
