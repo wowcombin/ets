@@ -13,6 +13,7 @@ const publicPaths = [
   '/api/auth/simple-login',
   '/api/sign-nda',
   '/api/sign-nda-sheets',
+  '/api/sign-nda-simple',
   '/api/setup-nda-table',
   '/api/setup-nda-permissions',
   '/api/test-db',

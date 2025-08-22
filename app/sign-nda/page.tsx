@@ -108,7 +108,7 @@ export default function SignNDAPage() {
     try {
       const signatureBase64 = getSignatureBase64()
       
-      const response = await fetch('/api/sign-nda-sheets', {
+      const response = await fetch('/api/sign-nda-simple', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
