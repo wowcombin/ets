@@ -113,9 +113,15 @@ export async function GET() {
       }
     }
     
-    // Рассчитываем ОБЩУЮ статистику от ВСЕХ (включая менеджеров)
-    const totalGross = allTransactions?.reduce((sum, t) => sum + (t.gross_profit_usd || 0), 0) || 0
-    console.log(`Total gross from ALL: $${totalGross.toFixed(2)} (${allTransactions.length} transactions)`)
+    // Рассчитываем ОБЩУЮ статистику ТОЛЬКО от сотрудников (исключаем менеджеров и тестовые аккаунты)
+    const totalGross = allTransactions?.reduce((sum, t) => {
+      // Исключаем менеджеров и тестовый аккаунт @sobroffice
+      if (t.employee?.is_manager || t.employee?.username === '@sobroffice') {
+        return sum
+      }
+      return sum + (t.gross_profit_usd || 0)
+    }, 0) || 0
+    console.log(`Total gross from EMPLOYEES only: $${totalGross.toFixed(2)} (${allTransactions.length} total transactions)`)
     
     // Статистика по сотрудникам с расчетом заработка на лету
     const employeeStats = employees?.map(emp => {
