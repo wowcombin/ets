@@ -39,10 +39,10 @@ export async function GET() {
     
     if (empError) throw empError
     
-    // ВАЖНО: Получаем ВСЕ транзакции сотрудников используя пагинацию
+    // ВАЖНО: Получаем транзакции ТОЛЬКО сотрудников для лидерборда
     const employeeIds = employees?.map(e => e.id) || []
-    console.log('Fetching ALL employee transactions with pagination...')
-    let allTransactions: any[] = []
+    console.log('Fetching employee transactions with pagination...')
+    let employeeTransactions: any[] = []
     let from = 0
     const limit = 1000
     let hasMore = true
@@ -62,8 +62,8 @@ export async function GET() {
       }
       
       if (batch && batch.length > 0) {
-        allTransactions = [...allTransactions, ...batch]
-        console.log(`Employee batch: ${from} to ${from + batch.length - 1}, total so far: ${allTransactions.length}`)
+        employeeTransactions = [...employeeTransactions, ...batch]
+        console.log(`Employee batch: ${from} to ${from + batch.length - 1}, total so far: ${employeeTransactions.length}`)
         from += limit
         hasMore = batch.length === limit
       } else {
@@ -71,7 +71,7 @@ export async function GET() {
       }
     }
     
-    const transactions = allTransactions
+    const transactions = employeeTransactions
     console.log(`Total employee transactions fetched: ${transactions.length}`)
     
     // Получаем зарплаты только сотрудников
