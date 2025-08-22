@@ -236,15 +236,18 @@ export default function EmployeeDashboard() {
             const data = await res.json()
             console.log('✅ Auto-sync completed:', data)
             
-            // Если были созданы новые транзакции, обновляем данные
-            if (data.stats?.transactionsCreated > 0) {
-              console.log(`📊 ${data.stats.transactionsCreated} новых транзакций добавлено!`)
+            // Если были созданы или обновлены транзакции, обновляем данные
+            const created = data.stats?.transactionsCreated || 0
+            const updated = data.stats?.transactionsUpdated || 0
+            
+            if (created > 0 || updated > 0) {
+              console.log(`📊 Синхронизация завершена: ${created} новых, ${updated} обновлено`)
               setTimeout(() => {
                 console.log('🔄 Loading data after sync...')
                 loadData(false)
               }, 5000) // Даем время на обработку
             } else {
-              console.log('ℹ️ Нет новых транзакций')
+              console.log('ℹ️ Нет изменений в транзакциях')
             }
           } catch (err) {
             console.error('❌ Auto-sync error:', err)
