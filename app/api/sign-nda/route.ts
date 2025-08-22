@@ -174,12 +174,18 @@ d) підлягає обов'язковому розкриттю на вимог
       }
     })
 
-    // Перемещаем документ в нужную папку
-    await drive.files.update({
-      fileId: documentId,
-      addParents: NDA_FOLDER_ID,
-      removeParents: 'root'
-    })
+    // Пытаемся переместить документ в папку NDA (если есть права)
+    try {
+      await drive.files.update({
+        fileId: documentId,
+        addParents: NDA_FOLDER_ID,
+        removeParents: 'root'
+      })
+      console.log('Document moved to NDA folder successfully')
+    } catch (moveError: any) {
+      console.warn('Could not move to NDA folder, document stays in root:', moveError.message)
+      // Документ остается в root папке, но это не критично
+    }
 
     // Сохраняем информацию о подписанном NDA в базу данных
     const { error: insertError } = await supabase
