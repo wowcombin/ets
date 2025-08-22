@@ -154,9 +154,7 @@ export async function POST() {
               withdrawal_usd: withdrawalUsd,
               card_number: cardNumber,
               gross_profit_usd: grossProfit,
-              net_profit_usd: grossProfit,
-              last_updated: new Date().toISOString(),
-              sync_timestamp: new Date().toISOString()
+              net_profit_usd: grossProfit
             })
             
             employeeTransactions++
