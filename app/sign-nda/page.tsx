@@ -154,14 +154,12 @@ export default function SignNDAPage() {
             <p className="text-gray-300">
               Ваш договір про нерозголошення було успішно створено та збережено.
             </p>
-            <div className="space-y-3">
-              <Button 
-                onClick={() => window.location.href = '/'}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                На Головну
-              </Button>
-            </div>
+            <Button 
+              onClick={() => window.location.href = '/'}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              На Головну
+            </Button>
           </CardContent>
         </Card>
       </div>
